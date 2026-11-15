@@ -1,0 +1,277 @@
+{
+  "ICONIC": {
+    "Editor": {
+      "Title": "Iconic",
+      "Color": "Color",
+      "Empty": "No icon selected.",
+      "Placeholders": {
+        "Hex": "#rrggbb"
+      },
+      "Buttons": {
+        "Select": "Select",
+        "PickFile": "Choose icon"
+      },
+      "Tooltips": {
+        "Hex": "Hex (#rrggbb)",
+        "SwapColors": "Swap icon/background colors",
+        "UseFactionColor": "Use faction color",
+        "IconScale": "Icon size",
+        "BackgroundEnabled": "Toggle background",
+        "BackgroundStroke": "Background stroke",
+        "IconStroke": "Icon stroke",
+        "FitIcon": "Scale the icon so it sits inside the shape",
+        "FlipH": "Flip the icon horizontally",
+        "FlipV": "Flip the icon vertically",
+        "ResetPlacement": "Reset rotation, shift and flip",
+        "Division": "Paint a second color over part of the field, like a heraldic shield",
+        "Contour2": "A second line inside the edge, parallel to it",
+        "Invert": "Invert color",
+        "FactionUnsupported": "Needs the Azimuth module or the SpaceHolder system",
+        "NoFaction": "There is no faction here to take a color from",
+        "Radius": "Only shapes with corners have it"
+      },
+      "Sections": {
+        "Icon": "Icon",
+        "IconStroke": "Icon outline",
+        "Placement": "Placement",
+        "Background": "Background",
+        "Division": "Field division",
+        "BackgroundStroke": "Background outline",
+        "Contour2": "Second contour"
+      },
+      "Background": {
+        "Color": "Background color",
+        "Shape": "Shape",
+        "Inset": "Inset, %",
+        "Radius": "Corner radius, %",
+        "Opacity": "Opacity, %",
+        "Stroke": "Outline",
+        "StrokeColor": "Stroke color",
+        "StrokeWidth": "Width, %",
+        "StrokeOpacity": "Opacity, %",
+        "FitIcon": "Fit icon",
+        "Groups": {
+          "Basic": "Basic",
+          "Hex": "Hexagon",
+          "Shield": "Heraldic shields"
+        },
+        "Shapes": {
+          "Square": "Square",
+          "Circle": "Circle",
+          "HexFlat": "Hexagon (flat top)",
+          "HexPointy": "Hexagon (pointy top)",
+          "ShieldHeater": "Heater",
+          "ShieldKite": "Kite",
+          "ShieldOval": "Oval (Italian)",
+          "ShieldFrench": "French (round base)",
+          "ShieldBaroque": "Baroque",
+          "ShieldTilting": "Tilting (notched)",
+          "ShieldBadge": "Badge",
+          "ShieldLozenge": "Lozenge"
+        },
+        "Division": "Field division",
+        "DivisionColor": "Second field color",
+        "Divisions": {
+          "None": "None",
+          "Pale": "Per pale (vertical halves)",
+          "Fess": "Per fess (horizontal halves)",
+          "Bend": "Per bend",
+          "BendSinister": "Per bend sinister",
+          "Chevron": "Per chevron",
+          "Saltire": "Per saltire",
+          "Quarterly": "Quarterly",
+          "Chief": "Chief (top band)",
+          "Gyronny": "Gyronny (8 wedges)",
+          "Paly": "Paly (vertical stripes)",
+          "Barry": "Barry (horizontal stripes)",
+          "Chequy": "Chequy (checkerboard)"
+        },
+        "Contour2": "Second contour",
+        "Contour2Color": "Second contour color",
+        "Contour2Width": "Width, %",
+        "Contour2Gap": "Gap, %"
+      },
+      "Icon": {
+        "Scale": "Size, %",
+        "Stroke": "Outline",
+        "StrokeColor": "Stroke color",
+        "StrokeWidth": "Width, %",
+        "StrokeOpacity": "Opacity, %",
+        "Opacity": "Opacity, %",
+        "Rotation": "Rotation, °",
+        "OffsetX": "Shift X (%)",
+        "OffsetY": "Shift Y (%)",
+        "Shift": "Shift, %",
+        "Flip": "Flip"
+      },
+      "Errors": {
+        "BakeFailed": "Failed to create icon",
+        "ApplyFailed": "Failed to apply icon",
+        "OnlySvg": "Please choose an SVG file",
+        "NoFilePicker": "File picker is not available"
+      },
+      "ApplyTo": "Apply to",
+      "Targets": {
+        "Portrait": "Portrait",
+        "Token": "Token",
+        "Both": "Both",
+        "Tile": "Tile"
+      },
+      "Hints": {
+        "LowContrast": "The icon is hard to read on the background ({ratio}:1).",
+        "IconColor": "Icon color:",
+        "BackgroundColor": "Background color:",
+        "Use": "Use {color} ({ratio}:1)"
+      }
+    },
+    "Actions": {
+      "Cancel": "Cancel"
+    },
+    "Menu": {
+      "Edit": "Iconic",
+      "Header": "Iconic"
+    },
+    "Errors": {
+      "NoUploadPermission": "You need the \"Upload Files\" permission to create icons."
+    },
+    "Tiles": {
+      "Tool": "New icon tile (Iconic)",
+      "EditorTitle": "New icon tile",
+      "PlaceHint": "Click the map to place the icon. Shift: off the grid. Alt: hidden from players. Esc or right click: cancel.",
+      "Errors": {
+        "GmOnly": "Only a GM can place tiles.",
+        "NoScene": "Open a scene to place a tile on.",
+        "PlaceFailed": "Failed to place the tile"
+      }
+    },
+    "TokenConfig": {
+      "EditorTitle": "Token image: {name}",
+      "ImageLocked": "This token's image is set by the prototype token overrides of its actor type."
+    },
+    "Settings": {
+      "HeaderButton": {
+        "Name": "Add Iconic to sheet menus",
+        "Hint": "Adds an Iconic entry to the window menu (\"⋮\") of actor, item, token and tile sheets, or a header button on older sheets, and a button to the HUD of SVG tiles. The right-click menu of the Actors and Items directories always has it."
+      },
+      "OutputFolder": {
+        "Name": "Folder for created icons",
+        "Hint": "Path inside the Data folder. Leave empty for worlds/<world>/iconic/generated, so the icons stay with the world."
+      }
+    },
+    "Browser": {
+      "Title": "Icon library",
+      "SearchPlaceholder": "Search icons…",
+      "Tabs": {
+        "Library": "Library",
+        "Created": "Created",
+        "Custom": "My SVGs"
+      },
+      "AllIcons": "All icons",
+      "AllTags": "All",
+      "Count": "{shown} of {total}",
+      "Buttons": {
+        "Select": "Select",
+        "Cancel": "Cancel",
+        "ChooseFile": "Choose a file…",
+        "AddCustom": "Add your own SVGs…"
+      },
+      "Detail": {
+        "Nothing": "Select an icon to see its details.",
+        "Author": "Author",
+        "License": "License",
+        "Tags": "Tags",
+        "Source": "Open on game-icons.net",
+        "File": "File"
+      },
+      "Empty": {
+        "NoResults": "Nothing found.",
+        "Created": "Icons you make appear here, newest first.",
+        "Custom": "Put SVG files into {folder} (the button below opens it), then come back to this tab."
+      },
+      "Loading": "Loading…",
+      "Errors": {
+        "LibraryMissing": "The icon library files are missing. Reinstall Iconic.",
+        "ListFailed": "Could not read the folder {folder}."
+      }
+    },
+    "Presets": {
+      "Strip": {
+        "Save": "Save style",
+        "SaveHint": "Save the current style to the library",
+        "Library": "Library",
+        "LibraryHint": "Open the style library",
+        "Empty": "Styles you use appear here.",
+        "Snapshot": "Previous settings",
+        "IconStyle": "Style of {name}"
+      },
+      "Tooltip": {
+        "Snapshot": "Previous settings, {time}",
+        "Icon": "Style of {name}, {time}",
+        "Partial": "Partially loaded",
+        "Contains": "Contains:",
+        "Everything": "All style settings",
+        "NotApplied": "Will not be applied:",
+        "Faction": "faction color",
+        "NoFaction": "There is no faction color here: the color saved in the style is used instead."
+      },
+      "Groups": {
+        "Icon": "Icon",
+        "Placement": "Placement",
+        "IconStroke": "Icon outline",
+        "Background": "Background",
+        "Division": "Field division",
+        "BgStroke": "Background outline",
+        "Contour2": "Second contour"
+      },
+      "Fields": {
+        "Enabled": "On / off",
+        "Color": "Color",
+        "Opacity": "Opacity",
+        "Size": "Size",
+        "Rotation": "Rotation",
+        "ShiftX": "Shift X",
+        "ShiftY": "Shift Y",
+        "FlipH": "Flip ↔",
+        "FlipV": "Flip ↕",
+        "Width": "Width",
+        "Shape": "Shape",
+        "Inset": "Inset",
+        "Radius": "Corner radius",
+        "FitIcon": "Fit icon",
+        "Pattern": "Pattern",
+        "Gap": "Gap"
+      },
+      "Save": {
+        "Title": "Save style",
+        "Name": "Name",
+        "NamePlaceholder": "Style name",
+        "Hint": "Untick what the style should leave alone. The icon itself is never part of a style.",
+        "Confirm": "Save",
+        "AsFaction": "Save as the faction color, not as this exact color",
+        "FactionUnsupported": "Faction colors need the Azimuth module or the SpaceHolder system",
+        "Saved": "Style \"{name}\" saved."
+      },
+      "Library": {
+        "Title": "Style library",
+        "Search": "Search styles…",
+        "Count": "{shown} of {total}",
+        "Loading": "Loading…",
+        "Empty": "No saved styles yet. Save one with the button under the preview.",
+        "NoResults": "Nothing found.",
+        "Unavailable": "The style folder cannot be read. You may lack the permission to use the file browser, or a GM has to open this library once to create the folder.",
+        "Select": "Select a style to see what it holds.",
+        "LoadHint": "Untick what should not be loaded.",
+        "Load": "Load",
+        "Rename": "Rename",
+        "Delete": "Delete",
+        "DeleteTitle": "Delete style",
+        "DeleteConfirm": "Delete \"{name}\" from the library? Foundry cannot delete files, so the style is only hidden: its file stays in the module's storage/presets folder and can be removed by hand."
+      },
+      "Errors": {
+        "SaveFailed": "The style could not be saved. If the folder is missing, a GM has to open the style library once.",
+        "RenameFailed": "The style could not be renamed.",
+        "RemoveFailed": "The style could not be deleted."
+      }
+    }
+  }
+}

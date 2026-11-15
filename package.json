@@ -1,0 +1,14 @@
+{
+  "name": "iconic",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Iconic: Foundry VTT module. Build tooling only; the module itself has no runtime dependencies.",
+  "scripts": {
+    "test": "node tests/bg-shapes.test.mjs && node tests/module.test.mjs && node tests/library.test.mjs && node tests/browser.test.mjs && node tests/stage2.test.mjs && node tests/faction.test.mjs && node tests/presets.test.mjs && node tests/imports.test.mjs && node tests/run-browser.mjs",
+    "build:library": "node tools/build-library.mjs"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
+  }
+}

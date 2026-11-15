@@ -1,0 +1,44 @@
+{
+  "id": "iconic",
+  "title": "Iconic",
+  "description": "Turn SVG icons into portraits and tokens: pick from a built-in library of over 4,000 game-icons.net icons, recolor, rotate, put them on a hexagon, circle or heraldic shield with a divided field and a second contour. Opens from the sheet menu or the actor and item directory context menu.",
+  "version": "0.2.0",
+  "authors": [
+    {
+      "name": "Duugrim",
+      "url": "https://github.com/Duugrim"
+    }
+  ],
+  "url": "https://github.com/Duugrim/iconic",
+  "manifest": "https://github.com/Duugrim/iconic/releases/latest/download/module.json",
+  "download": "https://github.com/Duugrim/iconic/releases/download/v0.2.0/iconic.zip",
+  "bugs": "https://github.com/Duugrim/iconic/issues",
+  "readme": "https://github.com/Duugrim/iconic/blob/main/README.md",
+  "changelog": "https://github.com/Duugrim/iconic/blob/main/CHANGELOG.md",
+  "license": "https://github.com/Duugrim/iconic/blob/main/LICENSE",
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
+  "esmodules": [
+    "scripts/iconic.mjs"
+  ],
+  "styles": [
+    "styles/iconic.css",
+    "styles/iconic-presets.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    },
+    {
+      "lang": "ru",
+      "name": "Русский",
+      "path": "lang/ru.json"
+    }
+  ],
+  "persistentStorage": true,
+  "flags": {}
+}

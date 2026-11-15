@@ -1,0 +1,734 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Iconic presets tests</title>
+<link rel="stylesheet" href="../../styles/iconic.css">
+<link rel="stylesheet" href="../../styles/iconic-presets.css">
+</head>
+<body>
+<script type="module">
+// The strip, the save window and the library against a stand-in for the editor, for ApplicationV2 and for
+// Foundry's files (which refuse to overwrite, so a store that tried to would fail here). Run by tests/run-browser.mjs.
+
+const results = [];
+const test = async (name, fn) => {
+  try {
+    await fn();
+    results.push({ name, ok: true });
+  } catch (e) {
+    results.push({ name, ok: false, detail: String(e?.stack ?? e) });
+  }
+};
+const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+const settle = () => sleep(200);
+
+// ---- Foundry, as far as presets see it ----
+
+class ApplicationV2 {
+  static DEFAULT_OPTIONS = {};
+  rendered = false;
+  async render() {
+    if (!this.content) {
+      this.content = document.createElement('div');
+      this.content.style.cssText = 'width:900px;height:560px;position:relative;';
+      this.content.className = this.constructor.DEFAULT_OPTIONS.classes.join(' ');
+      document.body.append(this.content);
+    }
+    this._replaceHTML(await this._renderHTML(), this.content);
+    this.rendered = true;
+    await this._onRender({}, {});
+    return this;
+  }
+  async _onRender() {}
+  async close() {
+    this.rendered = false;
+    this.content?.remove();
+    return this;
+  }
+  bringToFront() { this.broughtToFront = true; }
+}
+
+const disk = new Map();
+const dirs = new Set(['modules', 'modules/iconic', 'modules/iconic/storage']);
+const notes = [];
+const dialogs = { confirm: true, prompt: null, lastContent: '' };
+const settings = new Map();
+let nextId = 0;
+
+const FilePicker = {
+  async browse(_source, dir) {
+    if (!dirs.has(dir)) throw new Error('missing folder');
+    const files = [...disk.keys()].filter((p) => p.slice(0, p.lastIndexOf('/')) === dir);
+    return { files, dirs: [] };
+  },
+  async createDirectory(_source, dir) {
+    if (dirs.has(dir)) throw new Error('exists');
+    dirs.add(dir);
+  },
+  async upload(_source, dir, file) {
+    const path = `${dir}/${file.name}`;
+    if (!dirs.has(dir) || disk.has(path)) return false;
+    disk.set(path, await file.text());
+    return { path };
+  },
+};
+FilePicker.implementation = FilePicker;
+
+globalThis.foundry = {
+  applications: {
+    api: {
+      ApplicationV2,
+      HandlebarsApplicationMixin: (Base) => Base,
+      DialogV2: {
+        async confirm({ content }) { dialogs.lastContent = content; return dialogs.confirm; },
+        async prompt({ content }) { dialogs.lastContent = content; return dialogs.prompt; },
+      },
+    },
+    apps: { FilePicker },
+    instances: new Map(),
+  },
+  utils: { randomID: () => `id${++nextId}` },
+};
+globalThis.game = {
+  i18n: { lang: 'en', localize: (k) => k, format: (k, d) => `${k} ${JSON.stringify(d)}` },
+  settings: {
+    get: (_module, key) => settings.get(key) ?? [],
+    set: async (_module, key, value) => { settings.set(key, value); },
+  },
+};
+globalThis.ui = { notifications: {
+  info: (m) => notes.push(['info', m]),
+  warn: (m) => notes.push(['warn', m]),
+  error: (m) => notes.push(['error', m]),
+} };
+
+const realFetch = globalThis.fetch;
+globalThis.fetch = async (url, options) => {
+  const path = String(url).replace(/^\//, '');
+  if (disk.has(path)) return new Response(disk.get(path), { status: 200 });
+  return realFetch(url, options);
+};
+globalThis.console.warn = () => {};
+
+const { normalizeBakeOptions } = await import('../../scripts/lib/svg-bake.mjs');
+const { PresetController } = await import('../../scripts/presets/preset-controller.mjs');
+const { SETTING_PRESET_RECENT } = await import('../../scripts/lib/storage.mjs');
+
+const ICON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><path fill="#fff" d="M100 100h312v312H100z"/></svg>';
+
+/** What the editor offers presets, and how it replaces the slot on every render. */
+class FakeEditor {
+  constructor({ style = {}, faction = { color: null, name: null, supported: true } } = {}) {
+    this.style = normalizeBakeOptions(style);
+    this.factionInfo = faction;
+    this.renders = 0;
+    this.host = document.createElement('div');
+    this.host.className = 'iconic-editor';
+    this.host.style.cssText = 'width:280px;padding:0;';
+    document.body.append(this.host);
+    this.presets = new PresetController(this);
+    this.render();
+  }
+  getStyleOpts() { return normalizeBakeOptions(this.style); }
+  applyStyleOpts(opts) {
+    this.style = normalizeBakeOptions(opts);
+    this.render();
+  }
+  async getSourceSvgText() { return ICON; }
+  render() {
+    this.renders++;
+    this.slot = document.createElement('div');
+    this.slot.className = 'iconic-editor__presets';
+    this.slot.dataset.role = 'preset-strip';
+    this.slot.style.height = '64px';
+    this.host.replaceChildren(this.slot);
+    this.presets.mount(this.slot);
+    this.presets.onStyleChanged();
+  }
+  dispose() {
+    this.presets.close();
+    this.host.remove();
+  }
+  get tiles() { return [...this.slot.querySelectorAll('.iconic-presets__tile')]; }
+  button(action) { return this.slot.querySelector(`[data-preset-action="${action}"]`); }
+}
+
+const reset = () => {
+  disk.clear();
+  dirs.clear();
+  ['modules', 'modules/iconic', 'modules/iconic/storage'].forEach((d) => dirs.add(d));
+  settings.clear();
+  notes.length = 0;
+};
+
+const presetFile = (name, values, id = `f${++nextId}`, created = nextId) => {
+  dirs.add('modules/iconic/storage/presets');
+  disk.set(`modules/iconic/storage/presets/${id}.json`, JSON.stringify({ format: 'iconic-preset', version: 1, id, name, created, values }));
+  return id;
+};
+
+const inside = (node, box) => {
+  const a = node.getBoundingClientRect();
+  const b = box.getBoundingClientRect();
+  return a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
+};
+const assertInSlot = (editor) => {
+  const parts = editor.slot.querySelectorAll('.iconic-presets, .iconic-presets__action, .iconic-presets__tile, .iconic-presets__slot, .iconic-presets__empty');
+  assert(parts.length, 'the strip is empty');
+  for (const part of parts) assert(inside(part, editor.slot), `${part.className} leaves the slot`);
+};
+
+const pale = {
+  'background.enabled': true,
+  'background.shape': 'circle',
+  'background.color': '#ff0000',
+  'icon.color': '#00ff00',
+};
+
+/** Opens the library and waits for its list. */
+async function openLibrary(editor) {
+  editor.presets.openLibrary();
+  await settle();
+  return editor.presets._library;
+}
+const card = (lib, name) => [...lib.content.querySelectorAll('.iconic-presets-lib__card')].find((c) => c.textContent === name);
+const fieldBox = (root, group, index) => root.querySelectorAll('.iconic-presets-tree__group')[group]
+  .querySelectorAll('.iconic-presets-tree__field input')[index];
+const click = (node) => node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+const toggle = (box) => { box.checked = !box.checked; box.dispatchEvent(new Event('change', { bubbles: true })); };
+
+await test('strip: empty, it says what it is for, and stays inside its slot', async () => {
+  reset();
+  const editor = new FakeEditor();
+  assert(editor.slot.querySelector('.iconic-presets__empty')?.textContent === 'ICONIC.Presets.Strip.Empty', 'no hint');
+  assertInSlot(editor);
+  editor.dispose();
+});
+
+await test('strip: nothing in it is picked up by the editor\'s data-action handlers', async () => {
+  reset();
+  const editor = new FakeEditor();
+  assert(!editor.slot.querySelector('[data-action]'), 'data-action in the strip');
+  editor.dispose();
+});
+
+await test('library: applying a style sets it, keeps the previous settings, and draws pictures', async () => {
+  reset();
+  presetFile('Red circle', pale);
+  const editor = new FakeEditor({ style: { icon: { color: '#123456' } } });
+  const lib = await openLibrary(editor);
+
+  click(card(lib, 'Red circle'));
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+
+  assert(editor.style.background.shape === 'circle', 'the shape was not applied');
+  assert(editor.style.icon.color === '#00ff00', 'the color was not applied');
+  assert(lib.rendered, 'the library must stay open');
+
+  assert(editor.tiles.length === 2, `tiles: ${editor.tiles.length}`);
+  assert(!editor.tiles[0].classList.contains('is-snapshot'), 'the style comes first');
+  assert(editor.tiles[1].classList.contains('is-snapshot'), 'then the previous settings');
+  assert(editor.tiles[0].classList.contains('is-active'), 'the current style is marked');
+  assert(!editor.tiles[1].classList.contains('is-active'), 'the old settings are not current');
+  assertInSlot(editor);
+
+  for (const tile of editor.tiles) {
+    const img = tile.querySelector('img');
+    assert(img.src.startsWith('data:image/svg+xml'), 'no picture');
+    await img.decode();
+    assert(img.naturalWidth > 0, 'the picture does not draw');
+  }
+  assert(decodeURIComponent(editor.tiles[0].querySelector('img').src).toLowerCase().includes('#ff0000'), 'the picture does not show the style');
+  assert(settings.get(SETTING_PRESET_RECENT).length === 2, 'the strip was not stored');
+  assert(!disk.has('modules/iconic/storage/presets/removed'), 'nothing else was written');
+  assert([...disk.keys()].length === 1, 'the cache must not make files');
+  editor.dispose();
+  assert(!lib.rendered, 'the library closes with the editor');
+});
+
+await test('strip: one click goes back, and back and forth adds nothing', async () => {
+  reset();
+  presetFile('Red circle', pale);
+  const editor = new FakeEditor({ style: { icon: { color: '#123456' } } });
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Red circle'));
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+
+  click(editor.tiles[1]);
+  await settle();
+  assert(editor.style.icon.color === '#123456', 'the previous settings did not come back');
+  assert(editor.style.background.shape === 'square', 'the previous shape did not come back');
+  assert(editor.tiles.length === 2, `tiles: ${editor.tiles.length}`);
+
+  click(editor.tiles[1]);
+  await settle();
+  assert(editor.style.icon.color === '#00ff00', 'the style did not come back');
+  assert(editor.tiles.length === 2, `tiles: ${editor.tiles.length}`);
+  editor.dispose();
+});
+
+await test('strip: settings changed by hand are kept when another style is used', async () => {
+  reset();
+  presetFile('Red circle', pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Red circle'));
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+
+  editor.style.icon.color = '#abcdef';
+  editor.render();
+  click(editor.tiles[0]);
+  await settle();
+  assert(editor.style.icon.color === '#00ff00', 'the style was not applied');
+  assert(editor.tiles.length === 3, `tiles: ${editor.tiles.length}`);
+  click(editor.tiles[1]);
+  await settle();
+  assert(editor.style.icon.color === '#abcdef', 'the hand-made settings were lost');
+  editor.dispose();
+});
+
+await test('library: loading part of a style leaves the rest, and the strip marks it', async () => {
+  reset();
+  presetFile('Red circle', pale);
+  const editor = new FakeEditor({ style: { icon: { color: '#123456' } } });
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Red circle'));
+
+  const before = lib.content.querySelector('.iconic-presets-lib__preview img').src;
+  // Blocks shown: icon (0) with its color; background (1) with enabled, color, shape.
+  toggle(fieldBox(lib.content, 0, 0));
+  toggle(fieldBox(lib.content, 1, 1));
+  assert(lib.content.querySelector('.iconic-presets-lib__preview img').src !== before, 'the big picture does not follow the boxes');
+
+  const head = lib.content.querySelectorAll('.iconic-presets-tree__head input');
+  assert(!head[0].checked && !head[0].indeterminate, 'a block with nothing ticked');
+  assert(head[1].indeterminate, 'a block with some fields ticked is indeterminate');
+
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+
+  assert(editor.style.background.shape === 'circle', 'the ticked field was not applied');
+  assert(editor.style.icon.color === '#123456', 'the unticked icon color was applied');
+  assert(editor.style.background.color === normalizeBakeOptions({}).background.color, 'the unticked background color was applied');
+
+  const [tile] = editor.tiles;
+  assert(tile.classList.contains('is-partial'), 'the tile is not marked as partial');
+  assert(tile.querySelector('.iconic-presets__mark.is-partial'), 'no mark on the tile');
+  const html = tile.dataset.tooltipHtml;
+  assert(html === tile.dataset.tooltip, 'both tooltip attributes are set');
+  assert(html.includes('ICONIC.Presets.Tooltip.Partial'), 'the tooltip does not say partial');
+  assert(html.includes('ICONIC.Presets.Tooltip.NotApplied'), 'the tooltip does not name what is left out');
+
+  // From the strip it stays partial.
+  editor.style.background.shape = 'square';
+  editor.render();
+  click(editor.tiles[0]);
+  await settle();
+  assert(editor.style.background.shape === 'circle', 'the partial style does not apply from the strip');
+  assert(editor.style.icon.color === '#123456', 'the partial style applied too much from the strip');
+  editor.dispose();
+});
+
+await test('library: nothing ticked, nothing to load', async () => {
+  reset();
+  presetFile('One field', { 'icon.color': '#00ff00' });
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'One field'));
+  toggle(lib.content.querySelector('.iconic-presets-tree__head input'));
+  assert(lib.content.querySelector('[data-preset-action="load"]').disabled, 'load stays enabled');
+  editor.dispose();
+});
+
+await test('strip: the picture of a partial style follows the current style', async () => {
+  reset();
+  presetFile('Shape only', { 'background.shape': 'circle', 'background.enabled': true });
+  const editor = new FakeEditor({ style: { icon: { color: '#123456' } } });
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Shape only'));
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+
+  const img = () => decodeURIComponent(editor.tiles[0].querySelector('img').src).toLowerCase();
+  assert(img().includes('#123456'), 'the picture lacks the current icon color');
+  editor.style.icon.color = '#fedcba';
+  editor.presets.onStyleChanged();
+  await settle();
+  assert(img().includes('#fedcba'), 'the picture did not follow the style');
+  editor.dispose();
+});
+
+await test('save: the window writes one file with what is ticked, and the strip gets it', async () => {
+  reset();
+  const editor = new FakeEditor({ style: { icon: { color: '#112233' }, background: { color: '#445566', shape: 'circle', fitIcon: true } } });
+  click(editor.button('save'));
+  await settle();
+  const app = editor.presets._saveApp;
+  const root = app.content;
+
+  const save = root.querySelector('.iconic-presets-save__foot .primary');
+  assert(save.disabled, 'no name, no saving');
+  const name = root.querySelector('input[type="text"]');
+  assert(document.activeElement === name, 'the name field has the focus');
+  name.value = 'Только форма';
+  name.dispatchEvent(new Event('input', { bubbles: true }));
+  assert(!save.disabled, 'a name is enough to save');
+
+  // Untick every block, then tick only the shape.
+  for (const head of root.querySelectorAll('.iconic-presets-tree__head input')) toggle(head);
+  assert(save.disabled, 'nothing ticked, no saving');
+  toggle(fieldBox(root, 3, 3));
+  assert(!save.disabled, 'a field is enough to save');
+
+  click(save);
+  await settle();
+
+  const files = [...disk.entries()];
+  assert(files.length === 1, `${files.length} files`);
+  const [path, text] = files[0];
+  assert(/^modules\/iconic\/storage\/presets\/preset-id\d+\.json$/.test(path), path);
+  const file = JSON.parse(text);
+  assert(file.format === 'iconic-preset' && file.version === 1 && file.name === 'Только форма', text);
+  assert(JSON.stringify(file.values) === '{"background.shape":"circle"}', text);
+  assert(!app.rendered, 'the window closes');
+  assert(editor.tiles.length === 1 && !editor.tiles[0].classList.contains('is-snapshot'), 'the strip did not get it');
+  assert(notes.some(([kind]) => kind === 'info'), 'no word of success');
+  editor.dispose();
+});
+
+await test('save: the faction color can be chosen, and is offered where the color is the faction\'s', async () => {
+  reset();
+  const faction = { color: '#c1121f', name: 'Redmark', supported: true };
+  const editor = new FakeEditor({ faction, style: { icon: { color: '#ffffff' }, background: { color: '#c1121f', fitIcon: true } } });
+  click(editor.button('save'));
+  await settle();
+  const root = editor.presets._saveApp.content;
+  const links = [...root.querySelectorAll('.iconic-presets-tree__faction input')];
+  assert(links.length === 6, `${links.length} color fields`);
+  assert(links.filter((l) => l.checked).length === 1, 'only the background color matches the faction');
+  assert(links.every((l) => !l.disabled), 'all can be linked');
+  links[0].checked = true;
+
+  const name = root.querySelector('input[type="text"]');
+  name.value = 'Faction';
+  name.dispatchEvent(new Event('input', { bubbles: true }));
+  click(root.querySelector('.iconic-presets-save__foot .primary'));
+  await settle();
+
+  const { values } = JSON.parse([...disk.values()][0]);
+  assert(values['background.color'].$faction === true && values['background.color'].fallback === '#c1121f', 'background link');
+  assert(values['icon.color'].$faction === true && values['icon.color'].fallback === '#ffffff', 'icon link');
+  assert(values['icon.stroke.color'].$faction === undefined, 'the others stay colors');
+  editor.dispose();
+});
+
+await test('save: without Azimuth or SpaceHolder the faction link is off, with the reason on hover', async () => {
+  reset();
+  const editor = new FakeEditor({ faction: { color: null, name: null, supported: false } });
+  click(editor.button('save'));
+  await settle();
+  const root = editor.presets._saveApp.content;
+  const links = [...root.querySelectorAll('.iconic-presets-tree__faction input')];
+  assert(links.length === 6 && links.every((l) => l.disabled && !l.checked), 'the links must be off');
+  assert(links[0].closest('label').dataset.tooltip === 'ICONIC.Presets.Save.FactionUnsupported', 'the reason sits on the label');
+  editor.dispose();
+});
+
+await test('save: with the feature but no faction here, a link can still be stored', async () => {
+  reset();
+  const editor = new FakeEditor({ faction: { color: null, name: null, supported: true } });
+  click(editor.button('save'));
+  await settle();
+  const links = [...editor.presets._saveApp.content.querySelectorAll('.iconic-presets-tree__faction input')];
+  assert(links.every((l) => !l.disabled && !l.checked), 'the links can be used');
+  editor.dispose();
+});
+
+await test('faction: a linked color follows the document, and warns where there is none', async () => {
+  reset();
+  presetFile('Linked', { 'background.color': { $faction: true, fallback: '#777777' }, 'background.enabled': true });
+
+  for (const [color, expected, warns] of [['#c1121f', '#c1121f', false], [null, '#777777', true]]) {
+    settings.clear();
+    const editor = new FakeEditor({ faction: { color, name: null, supported: true } });
+    const lib = await openLibrary(editor);
+    click(card(lib, 'Linked'));
+    click(lib.content.querySelector('[data-preset-action="load"]'));
+    await settle();
+    assert(editor.style.background.color === expected, `got ${editor.style.background.color}`);
+    assert(editor.tiles[0].dataset.tooltipHtml.includes('Tooltip.NoFaction') === warns, 'the warning');
+    editor.dispose();
+  }
+});
+
+await test('save: what is saved is the style at that moment, and the window opens once', async () => {
+  reset();
+  const editor = new FakeEditor({ style: { icon: { color: '#111111' } } });
+  click(editor.button('save'));
+  await settle();
+  const app = editor.presets._saveApp;
+  click(editor.button('save'));
+  assert(editor.presets._saveApp === app && app.broughtToFront, 'a second window');
+
+  editor.style.icon.color = '#222222';
+  const name = app.content.querySelector('input[type="text"]');
+  name.value = 'Late';
+  name.dispatchEvent(new Event('input', { bubbles: true }));
+  click(app.content.querySelector('.iconic-presets-save__foot .primary'));
+  await settle();
+  assert(JSON.parse([...disk.values()][0]).values['icon.color'] === '#222222', 'an old style was saved');
+  editor.dispose();
+});
+
+await test('save: a failed write says so and keeps the window open', async () => {
+  reset();
+  const realUpload = FilePicker.upload;
+  FilePicker.upload = async () => false;
+  const realError = console.error;
+  console.error = () => {};
+  try {
+    const editor = new FakeEditor();
+    click(editor.button('save'));
+    await settle();
+    const app = editor.presets._saveApp;
+    const name = app.content.querySelector('input[type="text"]');
+    name.value = 'Lost';
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+    click(app.content.querySelector('.iconic-presets-save__foot .primary'));
+    await settle();
+    assert(app.rendered, 'the window must stay');
+    assert(notes.some(([kind, text]) => kind === 'error' && text === 'ICONIC.Presets.Errors.SaveFailed'), 'no error shown');
+    assert(!app.content.querySelector('.iconic-presets-save__foot .primary').disabled, 'it can be tried again');
+    assert(editor.tiles.length === 0, 'an unsaved style is not in the strip');
+    editor.dispose();
+  } finally {
+    FilePicker.upload = realUpload;
+    console.error = realError;
+  }
+});
+
+await test('library: deleting hides a style, the file stays and a removal file appears', async () => {
+  reset();
+  const id = presetFile('Gone', pale);
+  presetFile('Stays', pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Gone'));
+  click(lib.content.querySelector('[data-preset-action="delete"]'));
+  await settle();
+  assert(dialogs.lastContent.includes('ICONIC.Presets.Library.DeleteConfirm'), 'no question asked');
+  assert(!card(lib, 'Gone') && card(lib, 'Stays'), 'the list did not change');
+  assert(disk.has(`modules/iconic/storage/presets/${id}.json`), 'the file is still there');
+  assert(disk.has(`modules/iconic/storage/presets/removed/${id}.json`), 'no removal file');
+  assert(lib.content.querySelector('.iconic-presets-lib__detail .iconic-presets-lib__note'), 'the detail is empty again');
+  editor.dispose();
+});
+
+await test('library: a refused deletion changes nothing', async () => {
+  reset();
+  dialogs.confirm = false;
+  presetFile('Kept', pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Kept'));
+  click(lib.content.querySelector('[data-preset-action="delete"]'));
+  await settle();
+  dialogs.confirm = true;
+  assert(card(lib, 'Kept'), 'it is gone');
+  assert(disk.size === 1, 'something was written');
+  editor.dispose();
+});
+
+await test('library: renaming shows the new name and hides the old file', async () => {
+  reset();
+  presetFile('Old name', pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Old name'));
+  dialogs.prompt = '  New   name ';
+  click(lib.content.querySelector('[data-preset-action="rename"]'));
+  await settle();
+  assert(card(lib, 'New name') && !card(lib, 'Old name'), 'the list did not change');
+  assert(lib.content.querySelector('.iconic-presets-lib__title h3').textContent === 'New name', 'the detail did not change');
+  assert(disk.size === 3, `${disk.size} files: old, new, removal`);
+  editor.dispose();
+});
+
+await test('library: search narrows the cards, and says so when nothing is left', async () => {
+  reset();
+  presetFile('Red shield', pale);
+  presetFile('Blue circle', pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  const search = lib.content.querySelector('input[type="search"]');
+  search.value = 'SHIELD';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  assert(card(lib, 'Red shield') && !card(lib, 'Blue circle'), 'the search does not narrow');
+  search.value = 'zzz';
+  search.dispatchEvent(new Event('input', { bubbles: true }));
+  assert(lib.content.querySelector('.iconic-presets-lib__note').textContent === 'ICONIC.Presets.Library.NoResults', 'no word of it');
+  editor.dispose();
+});
+
+await test('library: cards get their pictures, and only the list scrolls', async () => {
+  reset();
+  for (let i = 0; i < 40; i++) presetFile(`Style ${i}`, pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  const list = lib.content.querySelector('.iconic-presets-lib__cards');
+  const imgs = [...list.querySelectorAll('img')];
+  assert(imgs.length === 40, `${imgs.length} cards`);
+  assert(imgs[0].src.startsWith('data:image/svg+xml'), 'a visible card has no picture');
+  assert(!imgs.at(-1).getAttribute('src'), 'a card out of view is not drawn yet');
+  assert(list.scrollHeight > list.clientHeight, 'the list should scroll');
+  const root = lib.content.querySelector('.iconic-presets-lib');
+  assert(root.scrollHeight <= root.clientHeight + 1, 'the window itself must not scroll');
+
+  list.scrollTop = list.scrollHeight;
+  await settle();
+  assert(imgs.at(-1).src.startsWith('data:image/svg+xml'), 'a card that came into view has no picture');
+  editor.dispose();
+});
+
+await test('library: broken files do not break it, and a folder that cannot be read says so', async () => {
+  reset();
+  presetFile('Good', pale);
+  disk.set('modules/iconic/storage/presets/broken.json', '{ nope');
+  disk.set('modules/iconic/storage/presets/future.json', '{"format":"iconic-preset","version":9,"id":"x","values":{"icon.color":"#000000"}}');
+  let editor = new FakeEditor();
+  let lib = await openLibrary(editor);
+  assert(lib.content.querySelectorAll('.iconic-presets-lib__card').length === 1, 'only the good file is a card');
+  editor.dispose();
+
+  const realBrowse = FilePicker.browse;
+  FilePicker.browse = async () => { throw new Error('no permission'); };
+  editor = new FakeEditor();
+  lib = await openLibrary(editor);
+  assert(lib.content.querySelector('.iconic-presets-lib__note').textContent === 'ICONIC.Presets.Library.Unavailable', 'no reason given');
+  FilePicker.browse = realBrowse;
+  editor.dispose();
+});
+
+await test('a name from a file stays text everywhere', async () => {
+  reset();
+  const evil = '<img src=x onerror="window.__xss=1">';
+  presetFile(evil, pale);
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  const [found] = lib.content.querySelectorAll('.iconic-presets-lib__card');
+  assert(found.querySelector('span').textContent === evil, 'the name is not shown as it is');
+  assert(found.querySelectorAll('img').length === 1, 'the name became an element');
+  click(found);
+  assert(lib.content.querySelector('.iconic-presets-lib__title h3').querySelector('img') === null, 'the name became an element in the detail');
+  click(lib.content.querySelector('[data-preset-action="load"]'));
+  await settle();
+  const tip = editor.tiles[0].dataset.tooltipHtml;
+  assert(!tip.includes('<img'), 'the name became HTML in the tooltip');
+  const box = document.createElement('div');
+  box.innerHTML = tip;
+  assert(!box.querySelector('img'), 'the tooltip holds an element from the name');
+
+  click(lib.content.querySelector('[data-preset-action="delete"]'));
+  await settle();
+  assert(!dialogs.lastContent.includes('<img'), 'the name became HTML in the question');
+  await sleep(50);
+  assert(!window.__xss, 'a script from a name ran');
+  editor.dispose();
+});
+
+await test('strip: all six tiles, marks included, stay inside a narrow slot', async () => {
+  reset();
+  const values = (n) => ({ 'icon.scalePct': 30 + n, 'icon.opacity': 0.5 });
+  settings.set(SETTING_PRESET_RECENT, Array.from({ length: 6 }, (_, i) => ({
+    kind: i % 2 ? 'snapshot' : 'preset',
+    name: `Style ${i}`,
+    values: values(i),
+    skip: i % 2 ? [] : ['icon.opacity'],
+    at: i,
+  })));
+  const editor = new FakeEditor();
+  await settle();
+  assert(editor.tiles.length === 6, `tiles: ${editor.tiles.length}`);
+  assert(!editor.slot.querySelector('.iconic-presets__slot'), 'no empty places left');
+  assertInSlot(editor);
+  const widths = editor.tiles.map((tile) => Math.round(tile.getBoundingClientRect().width));
+  assert(new Set(widths).size === 1, `widths differ: ${widths}`);
+
+  editor.host.style.width = '420px';
+  assertInSlot(editor);
+  editor.dispose();
+});
+
+await test('strip: a saved icon leaves a marked tile for the next editor, without its placement', async () => {
+  reset();
+  const saved = new FakeEditor({
+    style: { icon: { color: '#112233', rotationDeg: 30 }, background: { enabled: true, shape: 'circle', fitIcon: true } },
+  });
+  await settle();
+  saved.presets.onIconSaved('modules/iconic/storage/custom/bell%20shield.svg');
+  await settle();
+  saved.dispose();
+  assert(settings.get(SETTING_PRESET_RECENT)[0].name === 'bell shield', 'the icon gives the name');
+
+  const next = new FakeEditor();
+  await settle();
+  assert(next.tiles.length === 1, `tiles: ${next.tiles.length}`);
+  const [tile] = next.tiles;
+  assert(tile.classList.contains('is-snapshot'), 'looks like something from the library');
+  assert(tile.querySelector('.iconic-presets__mark .fa-image'), 'no mark on the tile');
+  assert(tile.getAttribute('aria-label'), 'no label on the tile');
+  assertInSlot(next);
+
+  click(tile);
+  await settle();
+  const style = next.getStyleOpts();
+  assert(style.background.shape === 'circle' && style.icon.color === '#112233', 'the style did not come back');
+  assert(style.icon.rotationDeg === 0, 'the placement came along');
+  next.dispose();
+});
+
+await test('strip: a stored strip that is damaged starts clean', async () => {
+  reset();
+  settings.set(SETTING_PRESET_RECENT, [null, 'x', { values: { nope: 1 } }]);
+  const editor = new FakeEditor();
+  assert(editor.tiles.length === 0, 'junk became tiles');
+  editor.dispose();
+});
+
+await test('library: a block never runs off to the side, however little height the boxes get', async () => {
+  reset();
+  const { collectValues, PRESET_FIELD_IDS } = await import('../../scripts/lib/preset-schema.mjs');
+  presetFile('Everything', collectValues(normalizeBakeOptions({}), PRESET_FIELD_IDS));
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(card(lib, 'Everything'));
+  const tree = lib.content.querySelector('.iconic-presets-tree');
+  assert(tree.querySelectorAll('.iconic-presets-tree__group').length === 7, 'all seven blocks');
+  tree.style.height = '120px';
+  tree.style.flex = '0 0 120px';
+  assert(tree.scrollWidth <= tree.clientWidth + 1, `${tree.scrollWidth} wide in ${tree.clientWidth}`);
+  for (const group of tree.querySelectorAll('.iconic-presets-tree__group')) {
+    assert(group.getBoundingClientRect().right <= tree.getBoundingClientRect().right + 1, 'a block is out of reach');
+  }
+  editor.dispose();
+});
+
+await test('library: the open window is brought forward, not opened twice', async () => {
+  reset();
+  const editor = new FakeEditor();
+  const lib = await openLibrary(editor);
+  click(editor.button('library'));
+  assert(editor.presets._library === lib && lib.broughtToFront, 'a second window');
+  editor.dispose();
+});
+
+window.__results = results;
+window.__done = true;
+</script>
+</body>
+</html>

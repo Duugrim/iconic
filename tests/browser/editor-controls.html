@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Iconic editor controls tests</title>
+<link rel="stylesheet" href="../../styles/iconic.css">
+<style>* { transition: none !important; }</style>
+</head>
+<body>
+<div class="iconic-editor" id="root">
+  <section data-block="icon">
+    <input type="color" data-action="color"><input type="text" data-action="color-hex">
+    <button type="button" id="faction-icon" data-action="set-faction-color" data-color-key="color"></button>
+    <button type="button" id="invert-icon" data-action="invert-color" data-color-key="color"></button>
+    <button type="button" id="swap" data-action="swap-colors"></button>
+    <input type="range" min="25" max="200" data-action="icon-scale"><input type="number" data-action="icon-scale-number">
+    <input type="range" min="0" max="100" data-action="icon-opacity"><input type="number" data-action="icon-opacity-number">
+  </section>
+  <section class="iconic-editor__block" data-block="icon-stroke">
+    <header class="iconic-editor__blockHead"><input type="checkbox" data-action="icon-stroke-enabled"></header>
+    <div class="iconic-editor__blockBody"></div>
+  </section>
+  <section class="iconic-editor__block" data-block="background">
+    <header class="iconic-editor__blockHead"><input type="checkbox" data-action="bg-enabled"></header>
+    <div class="iconic-editor__blockBody">
+      <input type="color" data-action="bg-color"><input type="text" data-action="bg-color-hex">
+      <select data-action="bg-shape"><option value="square">square</option><option value="circle">circle</option></select>
+      <div data-role="bg-radius">
+        <input type="range" data-action="bg-radius"><input type="number" data-action="bg-radius-number">
+      </div>
+    </div>
+  </section>
+  <section class="iconic-editor__block" data-block="division">
+    <div class="iconic-editor__blockBody">
+      <select data-action="bg-division"><option value="none">none</option><option value="pale">pale</option></select>
+      <div data-role="division-color">
+        <input type="color" data-action="bg-division-color"><input type="text" data-action="bg-division-color-hex">
+        <button type="button" id="faction-division" data-action="set-faction-color" data-color-key="bg-division-color"></button>
+      </div>
+    </div>
+  </section>
+  <section class="iconic-editor__block" data-block="bg-stroke">
+    <header class="iconic-editor__blockHead"><input type="checkbox" data-action="bg-stroke-enabled"></header>
+    <div class="iconic-editor__blockBody"></div>
+  </section>
+  <section class="iconic-editor__block" data-block="bg-contour2">
+    <header class="iconic-editor__blockHead"><input type="checkbox" data-action="bg-contour2-enabled"></header>
+    <div class="iconic-editor__blockBody"></div>
+  </section>
+</div>
+<script type="module">
+// What the controls of the editor do, with the real class and real events on a skeleton of its template
+// (the template itself needs Foundry's Handlebars). Run by tests/run-browser.mjs.
+class ApplicationV2 {
+  static DEFAULT_OPTIONS = {};
+}
+globalThis.foundry = {
+  applications: { api: { ApplicationV2, HandlebarsApplicationMixin: (Base) => class extends Base {} } },
+  utils: {},
+};
+const { IconicEditor } = await import('../../scripts/editor/editor-app.mjs');
+
+const root = document.getElementById('root');
+const action = (name) => root.querySelector(`[data-action="${name}"]`);
+
+const results = [];
+const test = async (name, fn) => {
+  try {
+    await fn();
+    results.push({ name, ok: true });
+  } catch (e) {
+    results.push({ name, ok: false, detail: String(e?.message ?? e) });
+  }
+};
+const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+/** A fresh editor on the skeleton; presets are not what is tested here. */
+let listeners = null;
+function editor(options = {}) {
+  if (listeners) {
+    root.removeEventListener('click', listeners._onRootClick);
+    root.removeEventListener('input', listeners._onRootInput);
+  }
+  localStorage.clear();
+  const app = new IconicEditor(options);
+  app._presets = { mount() {}, onStyleChanged() {}, close() {}, saved: [], onIconSaved(path) { this.saved.push(path); } };
+  app.renders = 0;
+  app.render = () => { app.renders += 1; };
+  root.addEventListener('click', app._onRootClick);
+  root.addEventListener('input', app._onRootInput);
+  listeners = app;
+  app._syncPreview(root);
+  return app;
+}
+const check = (name, on) => {
+  const box = action(name);
+  box.checked = on;
+  box.dispatchEvent(new Event('input', { bubbles: true }));
+};
+const choose = (name, value) => {
+  const el = action(name);
+  el.value = value;
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+};
+const block = (id) => root.querySelector(`[data-block="${id}"]`);
+const opacity = (el) => Number(getComputedStyle(el).opacity);
+
+await test('a block that is off dims its body, not its switch', () => {
+  editor();
+  check('icon-stroke-enabled', false);
+  const stroke = block('icon-stroke');
+  assert(stroke.classList.contains('is-off'), 'marked off');
+  assert(opacity(stroke.querySelector('.iconic-editor__blockBody')) < 1, 'the body is dimmed');
+  assert(opacity(stroke) === 1 && opacity(stroke.querySelector('.iconic-editor__blockHead')) === 1, 'the switch stays readable');
+  check('icon-stroke-enabled', true);
+  assert(!stroke.classList.contains('is-off'), 'on again');
+});
+
+await test('without a background everything that belongs to it is dimmed', () => {
+  editor();
+  check('bg-enabled', false);
+  assert(block('background').classList.contains('is-off'), 'the background is off');
+  for (const id of ['division', 'bg-stroke', 'bg-contour2']) {
+    assert(block(id).classList.contains('is-inactive'), `${id} is dimmed`);
+    assert(opacity(block(id)) < 1, `${id} looks dimmed`);
+  }
+  check('bg-enabled', true);
+  assert(!block('division').classList.contains('is-inactive'), 'back with the background');
+});
+
+await test('a block dimmed twice over is no darker than dimmed once', () => {
+  editor();
+  check('bg-enabled', false);
+  check('bg-stroke-enabled', false);
+  const stroke = block('bg-stroke');
+  assert(opacity(stroke) * opacity(stroke.querySelector('.iconic-editor__blockBody')) === opacity(stroke), 'one level of dimming');
+});
+
+await test('the outlines keep their switches while the background is off', () => {
+  const app = editor();
+  check('bg-enabled', true);
+  check('bg-stroke-enabled', true);
+  check('bg-contour2-enabled', true);
+  check('bg-enabled', false);
+  assert(app.getStyleOpts().background.stroke.enabled, 'the outline stays on in the style');
+  assert(app.getStyleOpts().background.contour2.enabled, 'the contour stays on in the style');
+  assert(!app._getBakeOpts().background.stroke.enabled, 'a bake leaves it out');
+  check('bg-enabled', true);
+  assert(app._getBakeOpts().background.stroke.enabled, 'and it is back with the background');
+});
+
+await test('a shape without corners dims and locks the radius', () => {
+  editor();
+  check('bg-enabled', true);
+  choose('bg-shape', 'circle');
+  const radius = root.querySelector('[data-role="bg-radius"]');
+  assert(radius.classList.contains('is-muted') && opacity(radius) < 1, 'dimmed');
+  assert(action('bg-radius').disabled && action('bg-radius-number').disabled, 'locked');
+  choose('bg-shape', 'square');
+  assert(!radius.classList.contains('is-muted') && !action('bg-radius').disabled, 'open again');
+});
+
+await test('an undivided field dims the second color', () => {
+  editor();
+  check('bg-enabled', true);
+  choose('bg-division', 'none');
+  const color = root.querySelector('[data-role="division-color"]');
+  assert(color.classList.contains('is-muted'), 'dimmed');
+  choose('bg-division', 'pale');
+  assert(!color.classList.contains('is-muted'), 'in use');
+});
+
+await test('none of these switches redraws the window', () => {
+  const app = editor();
+  check('bg-enabled', false);
+  check('bg-stroke-enabled', true);
+  choose('bg-shape', 'circle');
+  choose('bg-division', 'pale');
+  assert(app.renders === 0, `${app.renders} renders`);
+});
+
+await test('a slider and its number box follow each other', () => {
+  const app = editor();
+  choose('icon-scale', '150');
+  assert(action('icon-scale-number').value === '150' && app._iconScalePct === 150, 'the slider moves the number');
+  choose('icon-scale-number', '60');
+  assert(action('icon-scale').value === '60' && app._iconScalePct === 60, 'the number moves the slider');
+  choose('icon-opacity', '40');
+  assert(action('icon-opacity-number').value === '40' && app._iconOpacity === 0.4, 'a percent is stored as 0..1');
+  choose('icon-opacity-number', '70');
+  assert(action('icon-opacity').value === '70' && app._iconOpacity === 0.7, 'and the other way round');
+});
+
+await test('the faction color goes to the color its button stands next to', () => {
+  const app = editor({ factionColor: '#c1121f' });
+  document.getElementById('faction-division').click();
+  assert(app._bgDivisionColor === '#c1121f', 'the second field color');
+  assert(action('bg-division-color-hex').value === '#c1121f', 'its hex field follows');
+  assert(app._color !== '#c1121f', 'the icon color stays');
+  document.getElementById('faction-icon').click();
+  assert(app._color === '#c1121f', 'the icon color');
+});
+
+await test('without a faction color the button does nothing', () => {
+  const app = editor();
+  const before = app._color;
+  document.getElementById('faction-icon').click();
+  assert(app._color === before, 'the color stays');
+});
+
+await test('only a saved icon hands its style to the strip', async () => {
+  const app = editor({ initialPath: 'modules/iconic/storage/custom/bell.svg' });
+  app.close = async () => {};
+  await app._confirmSelection();
+  assert(app._presets.saved.join() === 'modules/iconic/storage/custom/bell.svg', 'saving did not tell presets');
+
+  const empty = editor();
+  empty.close = async () => {};
+  await empty._confirmSelection();
+  assert(!empty._presets.saved.length, 'nothing was saved');
+});
+
+await test('inverting and swapping keep the fields in step', () => {
+  const app = editor({ defaultColor: '#102030' });
+  document.getElementById('invert-icon').click();
+  assert(app._color === '#efdfcf' && action('color-hex').value === '#efdfcf', 'inverted');
+  const background = app._bgColor;
+  document.getElementById('swap').click();
+  assert(app._color === background && app._bgColor === '#efdfcf', 'swapped');
+  assert(action('bg-color-hex').value === '#efdfcf', 'its hex field follows');
+});
+
+window.__results = results;
+window.__done = true;
+</script>
+</body>
+</html>

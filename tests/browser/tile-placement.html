@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Iconic tile placement tests</title></head>
+<body>
+<canvas id="board" width="800" height="600"></canvas>
+<div id="sidebar"></div>
+<script type="module">
+// Choosing where a tile goes, with real pointer events on a stand-in for Foundry's canvas (scene pixels
+// are twice the screen's, the grid 100 px). Run by tests/run-browser.mjs.
+import { choosePoint } from '../../scripts/tile-placement.mjs';
+
+const board = document.getElementById('board');
+const sidebar = document.getElementById('sidebar');
+
+const hooks = new Map();
+globalThis.Hooks = {
+  on: (name, fn) => hooks.set(name, [...(hooks.get(name) ?? []), fn]),
+  off: (name, fn) => hooks.set(name, (hooks.get(name) ?? []).filter((f) => f !== fn)),
+};
+const fire = (name) => (hooks.get(name) ?? []).forEach((fn) => fn());
+
+globalThis.canvas = {
+  app: { view: board },
+  stage: { scale: { x: 0.5 } },
+  dimensions: { rect: { contains: (x, y) => x >= 0 && y >= 0 && x <= 1000 && y <= 1000 } },
+  canvasCoordinatesFromClient: ({ x, y }) => ({ x: x * 2, y: y * 2 }),
+  clientCoordinatesFromCanvas: ({ x, y }) => ({ x: x / 2, y: y / 2 }),
+  tiles: { getSnappedPoint: ({ x, y }) => ({ x: Math.round(x / 100) * 100, y: Math.round(y / 100) * 100 }) },
+};
+
+const results = [];
+const test = async (name, fn) => {
+  try {
+    await fn();
+    results.push({ name, ok: true });
+  } catch (e) {
+    results.push({ name, ok: false, detail: String(e?.message ?? e) });
+  }
+};
+const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+const pointer = (target, type, init = {}) => target.dispatchEvent(new PointerEvent(type, {
+  bubbles: true, cancelable: true, composed: true, clientX: 110, clientY: 160, button: 0, ...init,
+}));
+const ghost = () => document.querySelector('.iconic-tile-ghost');
+const leftovers = () => {
+  assert(!ghost(), 'the ghost is gone');
+  assert(!(hooks.get('canvasPan') ?? []).length && !(hooks.get('canvasTearDown') ?? []).length, 'the hooks are gone');
+};
+const start = () => choosePoint({ path: 'marker.svg', size: 100 });
+
+await test('a click takes the snapped point, and the canvas does not see it', async () => {
+  let seen = 0;
+  const count = () => { seen += 1; };
+  board.addEventListener('pointerdown', count);
+  const chosen = start();
+  pointer(board, 'pointerdown');
+  const point = await chosen;
+  board.removeEventListener('pointerdown', count);
+  assert(point.x === 200 && point.y === 300 && point.hidden === false, JSON.stringify(point));
+  assert(seen === 0, 'the click reached the canvas');
+  leftovers();
+});
+
+await test('Shift places off the grid, Alt hides', async () => {
+  const chosen = start();
+  pointer(board, 'pointerdown', { shiftKey: true, altKey: true });
+  const point = await chosen;
+  assert(point.x === 220 && point.y === 320 && point.hidden === true, JSON.stringify(point));
+});
+
+await test('the ghost follows the pointer at the size of the tile on screen, and the view', async () => {
+  const chosen = start();
+  assert(ghost()?.hidden === true, 'hidden until the pointer is on the map');
+  pointer(board, 'pointermove');
+  assert(!ghost().hidden, 'shown on the map');
+  assert(ghost().style.left === '100px' && ghost().style.top === '150px', `at ${ghost().style.left}, ${ghost().style.top}`);
+  assert(ghost().style.width === '50px', `width ${ghost().style.width}`);
+
+  canvas.stage.scale.x = 1;
+  fire('canvasPan');
+  assert(ghost().style.width === '100px', `zoomed width ${ghost().style.width}`);
+  canvas.stage.scale.x = 0.5;
+
+  pointer(sidebar, 'pointermove');
+  assert(ghost().hidden, 'hidden over the interface');
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  await chosen;
+});
+
+await test('Esc cancels', async () => {
+  const chosen = start();
+  window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert((await chosen) === null, 'a point came back');
+  leftovers();
+});
+
+await test('a right click cancels, a right drag pans and goes on', async () => {
+  let seen = 0;
+  const count = () => { seen += 1; };
+  board.addEventListener('pointerdown', count);
+  const chosen = start();
+  pointer(board, 'pointerdown', { button: 2 });
+  pointer(board, 'pointerup', { button: 2, clientX: 300 });
+  assert(seen === 1, 'the canvas gets the right button, for panning');
+  assert(ghost(), 'a drag does not cancel');
+
+  pointer(board, 'pointerdown', { button: 2 });
+  pointer(board, 'pointerup', { button: 2 });
+  board.removeEventListener('pointerdown', count);
+  assert((await chosen) === null, 'a point came back');
+  leftovers();
+});
+
+await test('a click on the interface or outside the scene takes no point', async () => {
+  const chosen = start();
+  pointer(sidebar, 'pointerdown');
+  pointer(board, 'pointerdown', { clientX: 700, clientY: 100 });
+  assert(ghost(), 'still placing');
+  pointer(board, 'pointerdown');
+  assert((await chosen).x === 200, 'the next click on the map counts');
+});
+
+await test('closing the scene cancels, and a second placement ends the first', async () => {
+  const closed = start();
+  fire('canvasTearDown');
+  assert((await closed) === null, 'a point came back');
+  leftovers();
+
+  const first = start();
+  const second = start();
+  assert((await first) === null, 'the first one ended');
+  assert(document.querySelectorAll('.iconic-tile-ghost').length === 1, 'one ghost');
+  pointer(board, 'pointerdown');
+  assert((await second).x === 200, 'the second one works');
+  leftovers();
+});
+
+window.__results = results;
+window.__done = true;
+</script>
+</body>
+</html>

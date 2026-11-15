@@ -1,0 +1,53 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish a release: it carries module.json (the manifest) and iconic.zip.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm test
+
+      - name: Check that the tag matches the version in module.json and package.json
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          MODULE_VERSION="$(jq -r .version module.json)"
+          PACKAGE_VERSION="$(jq -r .version package.json)"
+          if [ "$VERSION" != "$MODULE_VERSION" ] || [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Tag is $VERSION, module.json says $MODULE_VERSION, package.json says $PACKAGE_VERSION"
+            exit 1
+          fi
+
+      - name: Point the download URL at this release
+        run: |
+          jq --arg url "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/iconic.zip" \
+            '.download = $url' module.json > module.json.tmp
+          mv module.json.tmp module.json
+
+      - name: Build the zip (module.json at the root; no tests, tooling or node_modules)
+        run: |
+          zip -r iconic.zip module.json README.md LICENSE CREDITS.md CHANGELOG.md \
+            lang library scripts storage styles templates
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" module.json iconic.zip \
+            --title "Iconic ${GITHUB_REF_NAME#v}" --generate-notes

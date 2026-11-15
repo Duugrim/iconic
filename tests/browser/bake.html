@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Iconic bake tests</title></head>
+<body>
+<script type="module">
+// Baked SVGs are drawn on a canvas and their pixels checked. Run by tests/run-browser.mjs.
+import { buildBakedSvgText, normalizeBakeOptions } from '../../scripts/lib/svg-bake.mjs';
+
+const SIZE = 512;
+// A 100x100 square in the top-left corner: asymmetric, so turning, flipping and shifting are visible.
+const CORNER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}"><path fill="#fff" d="M0 0h100v100H0z"/></svg>`;
+
+const results = [];
+const test = async (name, fn) => {
+  try {
+    await fn();
+    results.push({ name, ok: true });
+  } catch (e) {
+    results.push({ name, ok: false, detail: String(e?.message ?? e) });
+  }
+};
+const assert = (cond, msg) => { if (!cond) throw new Error(msg); };
+
+async function draw(opts) {
+  const svg = buildBakedSvgText(CORNER, { opts: normalizeBakeOptions(opts), includeMeta: false });
+  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+  assert(!doc.querySelector('parsererror'), 'baked SVG is not valid XML');
+  const img = new Image();
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = SIZE;
+  canvas.height = SIZE;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, SIZE, SIZE);
+  const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+  return { svg, at: (x, y) => Array.from(data.slice((y * SIZE + x) * 4, (y * SIZE + x) * 4 + 4)) };
+}
+
+const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+const is = (px, color, tol = 8) => hex(color).every((v, i) => Math.abs(v - px[i]) <= tol) && px[3] > 250;
+const clear = (px) => px[3] < 8;
+const show = (px) => `rgba(${px.join(',')})`;
+
+const field = (extra = {}) => ({
+  icon: { color: '#ffffff', ...extra.icon },
+  background: { enabled: true, shape: 'square', color: '#ff0000', fitIcon: false, ...extra.background },
+});
+
+await test('division per pale paints the right half with the second color', async () => {
+  const { at } = await draw(field({ background: { division: { type: 'pale', color: '#0000ff' } } }));
+  assert(is(at(128, 400), '#ff0000'), `left ${show(at(128, 400))}`);
+  assert(is(at(384, 400), '#0000ff'), `right ${show(at(384, 400))}`);
+});
+
+await test('division quarterly paints the opposite quarters', async () => {
+  const { at } = await draw(field({ background: { division: { type: 'quarterly', color: '#0000ff' } } }));
+  assert(is(at(384, 128), '#0000ff'), 'top right');
+  assert(is(at(128, 384), '#0000ff'), 'bottom left');
+  assert(is(at(384, 384), '#ff0000'), 'bottom right');
+  assert(is(at(128, 128), '#ff0000'), 'top left');
+});
+
+await test('the second color stays inside a non-square shape', async () => {
+  const { at } = await draw(field({ background: { shape: 'circle', division: { type: 'pale', color: '#0000ff' } } }));
+  assert(clear(at(500, 8)), `corner outside the circle ${show(at(500, 8))}`);
+  assert(is(at(400, 256), '#0000ff'), 'inside the circle, right half');
+});
+
+await test('division lines take the outline color when the outline is on', async () => {
+  const { at } = await draw(field({ background: { stroke: { enabled: true, color: '#00ff00', widthPct: 4 }, division: { type: 'pale', color: '#0000ff' } } }));
+  assert(is(at(256, 400), '#00ff00'), `line ${show(at(256, 400))}`);
+  assert(is(at(150, 400), '#ff0000'), 'left field');
+  assert(is(at(360, 400), '#0000ff'), 'right field');
+});
+
+await test('field opacity applies to the whole divided field once', async () => {
+  const { at } = await draw(field({ background: { opacity: 0.5, division: { type: 'pale', color: '#0000ff' } } }));
+  const right = at(384, 400);
+  // blue over red must not leak red through: a translucent blue, not a purple mix
+  assert(right[2] > 240 && right[0] < 12 && Math.abs(right[3] - 128) < 6, `right ${show(right)}`);
+});
+
+await test('second contour is a band parallel to the edge', async () => {
+  const { at } = await draw(field({ background: { contour2: { enabled: true, color: '#00ff00', widthPct: 4, gapPct: 2 } } }));
+  // gap 10.24 .. band 10.24 .. 30.72 from every edge
+  for (const [x, y] of [[20, 256], [256, 20], [492, 256], [256, 492]]) assert(is(at(x, y), '#00ff00'), `band at ${x},${y} ${show(at(x, y))}`);
+  for (const [x, y] of [[5, 256], [40, 256], [256, 256], [256, 40]]) assert(is(at(x, y), '#ff0000'), `field at ${x},${y} ${show(at(x, y))}`);
+});
+
+await test('second contour keeps clear of the outline by the gap', async () => {
+  const { at } = await draw(field({ background: { stroke: { enabled: true, color: '#0000ff', widthPct: 2 }, contour2: { enabled: true, color: '#00ff00', widthPct: 4, gapPct: 2 } } }));
+  assert(is(at(5, 256), '#0000ff'), `outline ${show(at(5, 256))}`);
+  assert(is(at(15, 256), '#ff0000'), `gap ${show(at(15, 256))}`);
+  assert(is(at(30, 256), '#00ff00'), `band ${show(at(30, 256))}`);
+  assert(is(at(50, 256), '#ff0000'), `field ${show(at(50, 256))}`);
+});
+
+await test('second contour follows a curved edge at an even distance', async () => {
+  const { at } = await draw(field({ background: { shape: 'circle', contour2: { enabled: true, color: '#00ff00', widthPct: 4, gapPct: 2 } } }));
+  // the same distance (20 px in) from the circle's edge at the left, top and 45 degrees
+  const r = 256;
+  const d = 20;
+  const diag = (r - d) / Math.SQRT2;
+  // (the icon's own square covers the top-left corner, so the 45-degree points are on the other three sides)
+  for (const [x, y] of [[d, r], [r, d], [Math.round(r + diag), Math.round(r - diag)], [Math.round(r - diag), Math.round(r + diag)], [Math.round(r + diag), Math.round(r + diag)]]) {
+    assert(is(at(x, y), '#00ff00'), `band at ${x},${y} ${show(at(x, y))}`);
+  }
+});
+
+await test('rotation turns the icon around its center', async () => {
+  const still = await draw({ icon: { color: '#ffffff' } });
+  assert(is(still.at(50, 50), '#ffffff') && clear(still.at(462, 50)), 'starts top left');
+  const turned = await draw({ icon: { color: '#ffffff', rotationDeg: 90 } });
+  assert(is(turned.at(462, 50), '#ffffff') && clear(turned.at(50, 50)), `turned ${show(turned.at(462, 50))}`);
+  const half = await draw({ icon: { color: '#ffffff', rotationDeg: 180 } });
+  assert(is(half.at(462, 462), '#ffffff'), 'half turn lands bottom right');
+});
+
+await test('flips mirror the icon', async () => {
+  const h = await draw({ icon: { color: '#ffffff', flipH: true } });
+  assert(is(h.at(462, 50), '#ffffff') && clear(h.at(50, 50)), 'flipH: top right');
+  const v = await draw({ icon: { color: '#ffffff', flipV: true } });
+  assert(is(v.at(50, 462), '#ffffff') && clear(v.at(50, 50)), 'flipV: bottom left');
+  const both = await draw({ icon: { color: '#ffffff', flipH: true, flipV: true } });
+  assert(is(both.at(462, 462), '#ffffff'), 'both: bottom right');
+});
+
+await test('shift moves the icon by a share of the icon box', async () => {
+  const moved = await draw({ icon: { color: '#ffffff', offsetXPct: 10, offsetYPct: 20 } });
+  // 10% of 512 = 51 px right, 20% = 102 px down: the square now spans x 51..151, y 102..202
+  assert(is(moved.at(100, 150), '#ffffff'), `shifted ${show(moved.at(100, 150))}`);
+  assert(clear(moved.at(20, 50)) && clear(moved.at(100, 50)), 'old place is empty');
+});
+
+await test('rotation and flip work together with the fitted icon on a background', async () => {
+  const { at, svg } = await draw(field({ background: { fitIcon: true }, icon: { rotationDeg: 90, flipH: true } }));
+  assert(/rotate\(90\)/.test(svg) && /scale\(-/.test(svg), 'transform carries both');
+  assert(is(at(10, 256), '#ff0000') || is(at(10, 256), '#ffffff'), 'rendered');
+});
+
+await test('a plain background keeps the old single-path structure', async () => {
+  const { svg } = await draw(field({ background: { stroke: { enabled: true, color: '#00ff00', widthPct: 2 } } }));
+  assert(!svg.includes('<defs') && !svg.includes('sh-bg-clip'), 'no clip or mask without a division or second contour');
+  assert((svg.match(/data-sh-role="bg"/g) ?? []).length === 1, 'one background element');
+});
+
+window.__results = results;
+window.__done = true;
+</script>
+</body>
+</html>

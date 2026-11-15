@@ -1,0 +1,317 @@
+<div class="iconic-editor">
+  {{!-- A color: picker, hex field and the buttons every color has. --}}
+  {{#*inline "colorRow"}}
+    <div class="iconic-editor__colorRow" {{#if role}}data-role="{{role}}"{{/if}}>
+      <input
+        class="iconic-editor__color"
+        type="color"
+        value="{{value}}"
+        data-action="{{action}}"
+        aria-label="{{label}}"
+        data-tooltip="{{label}}"
+      />
+      <input
+        class="iconic-editor__colorHex"
+        type="text"
+        value="{{value}}"
+        data-action="{{action}}-hex"
+        placeholder="{{localize 'ICONIC.Editor.Placeholders.Hex'}}"
+        aria-label="{{label}}"
+        data-tooltip="{{localize 'ICONIC.Editor.Tooltips.Hex'}}"
+      />
+      {{!-- The tooltip sits on a wrapper: a disabled button does not report the pointer. --}}
+      <span class="iconic-editor__tip" data-tooltip="{{@root.factionTooltip}}">
+        <button
+          type="button"
+          class="iconic-editor__iconBtn"
+          data-action="set-faction-color"
+          data-color-key="{{action}}"
+          {{#unless @root.hasFactionColor}}disabled{{/unless}}
+          aria-label="{{@root.factionTooltip}}"
+        ><i class="fa-solid fa-flag" aria-hidden="true"></i></button>
+      </span>
+      <button
+        type="button"
+        class="iconic-editor__iconBtn"
+        data-action="invert-color"
+        data-color-key="{{action}}"
+        aria-label="{{localize 'ICONIC.Editor.Tooltips.Invert'}}"
+        data-tooltip="{{localize 'ICONIC.Editor.Tooltips.Invert'}}"
+      ><i class="fa-solid fa-circle-half-stroke" aria-hidden="true"></i></button>
+      {{#if swap}}
+        <button
+          type="button"
+          class="iconic-editor__iconBtn"
+          data-action="swap-colors"
+          aria-label="{{localize 'ICONIC.Editor.Tooltips.SwapColors'}}"
+          data-tooltip="{{localize 'ICONIC.Editor.Tooltips.SwapColors'}}"
+        ><i class="fa-solid fa-right-left" aria-hidden="true"></i></button>
+      {{/if}}
+    </div>
+  {{/inline}}
+
+  {{!-- A number with a slider next to it: "<action>" and "<action>-number". --}}
+  {{#*inline "slider"}}
+    <div class="iconic-editor__row" {{#if role}}data-role="{{role}}"{{/if}}>
+      <span class="iconic-editor__rowLabel" {{#if tip}}data-tooltip="{{tip}}"{{/if}}>{{label}}</span>
+      <div class="iconic-editor__controls">
+        <input
+          class="iconic-editor__range"
+          type="range"
+          min="{{min}}"
+          max="{{max}}"
+          step="{{step}}"
+          value="{{value}}"
+          data-action="{{action}}"
+          aria-label="{{label}}"
+        />
+        <input
+          class="iconic-editor__number"
+          type="number"
+          min="{{min}}"
+          max="{{max}}"
+          step="1"
+          value="{{value}}"
+          data-action="{{action}}-number"
+          aria-label="{{label}}"
+        />
+      </div>
+    </div>
+  {{/inline}}
+
+  <div class="iconic-editor__body">
+    <aside class="iconic-editor__side">
+      <header class="iconic-editor__top">
+        <button
+          type="button"
+          class="iconic-editor__btn"
+          data-action="pick-file"
+          aria-label="{{localize 'ICONIC.Editor.Buttons.PickFile'}}"
+          data-tooltip="{{localize 'ICONIC.Editor.Buttons.PickFile'}}"
+        >
+          <i class="fa-solid fa-icons" aria-hidden="true"></i>
+          {{localize 'ICONIC.Editor.Buttons.PickFile'}}
+        </button>
+
+        <div
+          class="iconic-editor__path {{#unless hasSrc}}is-empty{{/unless}}"
+          data-tooltip="{{srcPath}}"
+          aria-label="{{srcPath}}"
+        >
+          {{#if hasSrc}}{{fileName}}{{else}}—{{/if}}
+        </div>
+      </header>
+
+      <section class="iconic-editor__preview" data-role="preview">
+        {{#if hasSrc}}
+          <div
+            class="iconic-editor__thumb is-large"
+            data-role="preview-thumb"
+            data-src="{{previewUrl}}"
+            aria-hidden="true"
+          >
+            <img class="iconic-editor__thumbImg" data-role="preview-img" alt="" />
+          </div>
+        {{else}}
+          <div class="iconic-editor__empty" data-role="empty">
+            {{localize 'ICONIC.Editor.Empty'}}
+          </div>
+        {{/if}}
+      </section>
+
+      <div class="iconic-editor__presets" data-role="preset-strip"></div>
+    </aside>
+
+    <div class="iconic-editor__panels">
+      <div class="iconic-editor__family" data-family="icon">
+        <section class="iconic-editor__block" data-block="icon">
+          <header class="iconic-editor__blockHead">
+            <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.Icon'}}</span>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> colorRow action="color" value=color label=(localize 'ICONIC.Editor.Color') swap=true}}
+            {{> slider action="icon-scale" value=iconScalePct min=25 max=200 step=5 label=(localize 'ICONIC.Editor.Icon.Scale') tip=(localize 'ICONIC.Editor.Tooltips.IconScale')}}
+            {{> slider action="icon-opacity" value=iconOpacityPct min=0 max=100 step=5 label=(localize 'ICONIC.Editor.Icon.Opacity')}}
+          </div>
+        </section>
+
+        <section class="iconic-editor__block" data-block="icon-stroke">
+          <header class="iconic-editor__blockHead">
+            <label class="iconic-editor__toggle" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.IconStroke'}}">
+              <input type="checkbox" data-action="icon-stroke-enabled" {{#if iconStrokeEnabled}}checked{{/if}} />
+              <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.IconStroke'}}</span>
+            </label>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> colorRow action="icon-stroke-color" value=iconStrokeColor label=(localize 'ICONIC.Editor.Icon.StrokeColor')}}
+            {{> slider action="icon-stroke-width" value=iconStrokeWidthPct min=0 max=50 step=1 label=(localize 'ICONIC.Editor.Icon.StrokeWidth')}}
+            {{> slider action="icon-stroke-opacity" value=iconStrokeOpacityPct min=0 max=100 step=5 label=(localize 'ICONIC.Editor.Icon.StrokeOpacity')}}
+          </div>
+        </section>
+
+        <section class="iconic-editor__block" data-block="placement">
+          <header class="iconic-editor__blockHead">
+            <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.Placement'}}</span>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> slider action="icon-rotation" value=iconRotationDeg min=-180 max=180 step=5 label=(localize 'ICONIC.Editor.Icon.Rotation')}}
+
+            <div class="iconic-editor__row">
+              <span class="iconic-editor__rowLabel">{{localize 'ICONIC.Editor.Icon.Shift'}}</span>
+              <div class="iconic-editor__controls">
+                <label class="iconic-editor__field" data-tooltip="{{localize 'ICONIC.Editor.Icon.OffsetX'}}">
+                  <span class="iconic-editor__label">X</span>
+                  <input class="iconic-editor__number" type="number" min="-50" max="50" step="1" value="{{iconOffsetXPct}}" data-action="icon-offset-x" aria-label="{{localize 'ICONIC.Editor.Icon.OffsetX'}}" />
+                </label>
+                <label class="iconic-editor__field" data-tooltip="{{localize 'ICONIC.Editor.Icon.OffsetY'}}">
+                  <span class="iconic-editor__label">Y</span>
+                  <input class="iconic-editor__number" type="number" min="-50" max="50" step="1" value="{{iconOffsetYPct}}" data-action="icon-offset-y" aria-label="{{localize 'ICONIC.Editor.Icon.OffsetY'}}" />
+                </label>
+              </div>
+            </div>
+
+            <div class="iconic-editor__row">
+              <span class="iconic-editor__rowLabel">{{localize 'ICONIC.Editor.Icon.Flip'}}</span>
+              <div class="iconic-editor__controls">
+                <button
+                  type="button"
+                  class="iconic-editor__iconBtn {{#if iconFlipH}}is-active{{/if}}"
+                  data-action="flip-h"
+                  aria-pressed="{{#if iconFlipH}}true{{else}}false{{/if}}"
+                  aria-label="{{localize 'ICONIC.Editor.Tooltips.FlipH'}}"
+                  data-tooltip="{{localize 'ICONIC.Editor.Tooltips.FlipH'}}"
+                ><i class="fa-solid fa-left-right" aria-hidden="true"></i></button>
+                <button
+                  type="button"
+                  class="iconic-editor__iconBtn {{#if iconFlipV}}is-active{{/if}}"
+                  data-action="flip-v"
+                  aria-pressed="{{#if iconFlipV}}true{{else}}false{{/if}}"
+                  aria-label="{{localize 'ICONIC.Editor.Tooltips.FlipV'}}"
+                  data-tooltip="{{localize 'ICONIC.Editor.Tooltips.FlipV'}}"
+                ><i class="fa-solid fa-up-down" aria-hidden="true"></i></button>
+                <button
+                  type="button"
+                  class="iconic-editor__iconBtn iconic-editor__iconBtn--end"
+                  data-action="reset-placement"
+                  aria-label="{{localize 'ICONIC.Editor.Tooltips.ResetPlacement'}}"
+                  data-tooltip="{{localize 'ICONIC.Editor.Tooltips.ResetPlacement'}}"
+                ><i class="fa-solid fa-rotate-left" aria-hidden="true"></i></button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="iconic-editor__family" data-family="background">
+        <section class="iconic-editor__block" data-block="background">
+          <header class="iconic-editor__blockHead">
+            <label class="iconic-editor__toggle" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.BackgroundEnabled'}}">
+              <input type="checkbox" data-action="bg-enabled" {{#if bgEnabled}}checked{{/if}} />
+              <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.Background'}}</span>
+            </label>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> colorRow action="bg-color" value=bgColor label=(localize 'ICONIC.Editor.Background.Color')}}
+            {{> slider action="bg-opacity" value=bgOpacityPct min=0 max=100 step=5 label=(localize 'ICONIC.Editor.Background.Opacity')}}
+
+            {{!-- The whole width of the block: the names of the shapes are long. --}}
+            <div class="iconic-editor__controls">
+              <select
+                class="iconic-editor__select iconic-editor__select--wide"
+                data-action="bg-shape"
+                aria-label="{{localize 'ICONIC.Editor.Background.Shape'}}"
+                data-tooltip="{{localize 'ICONIC.Editor.Background.Shape'}}"
+              >
+                {{#each bgShapeGroups}}
+                  <optgroup label="{{label}}">
+                    {{#each shapes}}
+                      <option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+                    {{/each}}
+                  </optgroup>
+                {{/each}}
+              </select>
+            </div>
+
+            {{> slider action="bg-inset" value=bgInsetPct min=0 max=49 step=1 label=(localize 'ICONIC.Editor.Background.Inset')}}
+            {{> slider action="bg-radius" role="bg-radius" value=bgRadiusPct min=0 max=50 step=1 label=(localize 'ICONIC.Editor.Background.Radius') tip=(localize 'ICONIC.Editor.Tooltips.Radius')}}
+
+            <div class="iconic-editor__row">
+              <label class="iconic-editor__toggle iconic-editor__toggle--row" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.FitIcon'}}">
+                <input type="checkbox" data-action="bg-fit-icon" {{#if bgFitIcon}}checked{{/if}} />
+                <span>{{localize 'ICONIC.Editor.Background.FitIcon'}}</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="iconic-editor__block iconic-editor__block--wide" data-block="division">
+          <header class="iconic-editor__blockHead">
+            <span class="iconic-editor__blockTitle" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.Division'}}">{{localize 'ICONIC.Editor.Sections.Division'}}</span>
+          </header>
+          <div class="iconic-editor__blockBody iconic-editor__blockBody--line">
+            <select class="iconic-editor__select iconic-editor__select--wide" data-action="bg-division" aria-label="{{localize 'ICONIC.Editor.Background.Division'}}">
+              {{#each bgDivisions}}
+                <option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+              {{/each}}
+            </select>
+            {{> colorRow action="bg-division-color" role="division-color" value=bgDivisionColor label=(localize 'ICONIC.Editor.Background.DivisionColor')}}
+          </div>
+        </section>
+
+        <section class="iconic-editor__block" data-block="bg-stroke">
+          <header class="iconic-editor__blockHead">
+            <label class="iconic-editor__toggle" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.BackgroundStroke'}}">
+              <input type="checkbox" data-action="bg-stroke-enabled" {{#if bgStrokeEnabled}}checked{{/if}} />
+              <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.BackgroundStroke'}}</span>
+            </label>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> colorRow action="bg-stroke-color" value=bgStrokeColor label=(localize 'ICONIC.Editor.Background.StrokeColor')}}
+            {{> slider action="bg-stroke-width" value=bgStrokeWidthPct min=0 max=50 step=1 label=(localize 'ICONIC.Editor.Background.StrokeWidth')}}
+            {{> slider action="bg-stroke-opacity" value=bgStrokeOpacityPct min=0 max=100 step=5 label=(localize 'ICONIC.Editor.Background.StrokeOpacity')}}
+          </div>
+        </section>
+
+        <section class="iconic-editor__block" data-block="bg-contour2">
+          <header class="iconic-editor__blockHead">
+            <label class="iconic-editor__toggle" data-tooltip="{{localize 'ICONIC.Editor.Tooltips.Contour2'}}">
+              <input type="checkbox" data-action="bg-contour2-enabled" {{#if bgContour2Enabled}}checked{{/if}} />
+              <span class="iconic-editor__blockTitle">{{localize 'ICONIC.Editor.Sections.Contour2'}}</span>
+            </label>
+          </header>
+          <div class="iconic-editor__blockBody">
+            {{> colorRow action="bg-contour2-color" value=bgContour2Color label=(localize 'ICONIC.Editor.Background.Contour2Color')}}
+            {{> slider action="bg-contour2-width" value=bgContour2WidthPct min=0 max=25 step=1 label=(localize 'ICONIC.Editor.Background.Contour2Width')}}
+            {{> slider action="bg-contour2-gap" value=bgContour2GapPct min=0 max=25 step=1 label=(localize 'ICONIC.Editor.Background.Contour2Gap')}}
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer class="iconic-editor__foot">
+    <div class="iconic-editor__hint" data-role="contrast-hint" role="status" hidden></div>
+
+    {{#if hasTargets}}
+      <label class="iconic-editor__field">
+        <span class="iconic-editor__label">{{localize 'ICONIC.Editor.ApplyTo'}}</span>
+        <select class="iconic-editor__select" data-action="apply-target">
+          {{#each targets}}
+            <option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>
+          {{/each}}
+        </select>
+      </label>
+    {{/if}}
+
+    <button
+      type="button"
+      class="iconic-editor__btn primary"
+      data-action="confirm"
+      {{#unless canConfirm}}disabled{{/unless}}
+    ><i class="fa-solid fa-check" aria-hidden="true"></i> {{localize 'ICONIC.Editor.Buttons.Select'}}</button>
+
+    <button type="button" class="iconic-editor__btn" data-action="cancel">
+      <i class="fa-solid fa-times" aria-hidden="true"></i> {{localize 'ICONIC.Actions.Cancel'}}
+    </button>
+  </footer>
+</div>

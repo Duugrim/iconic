@@ -1,0 +1,777 @@
+/* Iconic editor window. Colors come from Foundry's own variables so it follows the active theme. */
+
+/* The variables are set on the window as well as on the inner wrapper, so they reach every control
+   whatever Foundry does with a template's outer element. */
+.iconic-editor-window,
+.iconic-browser-window,
+.iconic-editor,
+.iconic-browser {
+  --iconic-gap: 10px;
+  --iconic-border: var(--color-border, rgba(127, 127, 127, 0.45));
+  --iconic-surface: var(--color-cool-5-25, rgba(127, 127, 127, 0.1));
+  --iconic-text-dim: var(--color-form-hint, rgba(127, 127, 127, 0.9));
+  --iconic-accent: var(--color-border-highlight, #7aa2ff);
+  --iconic-warning: #d9a441;
+}
+
+/* The size set in editor-app.mjs fits everything without scrolling: the window can grow, not shrink.
+   While it is minimized the minimum has to go, or it would win over the height Foundry collapses it to. */
+.iconic-editor-window:not(.minimizing, .minimized, .maximizing) {
+  min-width: 1120px;
+  min-height: 540px;
+}
+
+.iconic-editor-window .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.iconic-editor {
+  --iconic-control-h: 28px;
+  --iconic-label-w: 104px;
+  --iconic-muted: 0.45;
+
+  flex: 1 1 auto;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iconic-gap);
+  padding: var(--iconic-gap);
+  min-height: 0;
+}
+
+/* Every control has the same height, so a row is as tall as one control. */
+.iconic-editor input[type="text"],
+.iconic-editor input[type="number"],
+.iconic-editor select,
+.iconic-editor button {
+  box-sizing: border-box;
+  height: var(--iconic-control-h);
+  min-height: 0;
+  margin: 0;
+}
+
+.iconic-editor label {
+  margin: 0;
+}
+
+/* File row */
+
+.iconic-editor__top {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.iconic-editor__path {
+  flex: 1 1 0;
+  min-width: 0;
+  height: var(--iconic-control-h);
+  box-sizing: border-box;
+  padding: 0 8px;
+  line-height: calc(var(--iconic-control-h) - 2px);
+  border: 1px solid var(--iconic-border);
+  border-radius: 4px;
+  background: var(--iconic-surface);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconic-editor__path.is-empty {
+  color: var(--iconic-text-dim);
+}
+
+.iconic-editor__btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+/* Two columns: what you get (file, preview, presets) and what you set (the blocks). */
+
+.iconic-editor__body {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(300px, 27%) minmax(0, 1fr);
+  gap: var(--iconic-gap);
+  min-height: 0;
+}
+
+.iconic-editor__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--iconic-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.iconic-editor__preview {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--iconic-border);
+  border-radius: 4px;
+  background: var(--iconic-surface);
+  overflow: hidden;
+}
+
+.iconic-editor__thumb {
+  width: 100%;
+  height: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconic-editor__thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.iconic-editor__empty {
+  padding: 12px;
+  color: var(--iconic-text-dim);
+  text-align: center;
+}
+
+/* The presets strip: a slot of a fixed height, filled by scripts/presets (styled in iconic-presets.css). */
+.iconic-editor__presets {
+  flex: 0 0 auto;
+  height: var(--iconic-preset-strip-h, 64px);
+  min-width: 0;
+}
+
+/* The last line: the contrast warning on the left, so it takes no room from anything when it appears,
+   and where the result goes on the right. */
+
+.iconic-editor__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  height: var(--iconic-control-h);
+  min-width: 0;
+}
+
+.iconic-editor__foot .iconic-editor__select {
+  width: auto;
+  min-width: 120px;
+}
+
+/* Blocks: one per thing that has a color of its own, in two families that frame them. */
+
+.iconic-editor__panels {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: var(--iconic-gap);
+  min-width: 0;
+  min-height: 0;
+}
+
+.iconic-editor__family {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--iconic-border);
+  border-radius: 6px;
+  background: var(--iconic-surface);
+  min-height: 0;
+}
+
+.iconic-editor__family[data-family="background"] {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.iconic-editor__block[data-block="background"] {
+  grid-row: span 2;
+}
+
+.iconic-editor__block--wide {
+  grid-column: span 2;
+}
+
+.iconic-editor__block {
+  box-sizing: border-box;
+  padding: 5px 8px 8px;
+  border: 1px solid var(--iconic-border);
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  min-height: 0;
+  transition: opacity 120ms;
+}
+
+.iconic-editor__blockHead {
+  display: flex;
+  align-items: center;
+  height: 20px;
+  min-width: 0;
+}
+
+.iconic-editor__blockTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iconic-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconic-editor__blockBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  transition: opacity 120ms;
+}
+
+.iconic-editor__blockBody--line {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+/* What has no effect is dimmed and stays where it is, still editable: a block keeps its size whatever
+   is switched. A block's own switch sits in its head, outside the dimmed body. */
+.iconic-editor__block.is-inactive,
+.iconic-editor__block.is-off:not(.is-inactive) .iconic-editor__blockBody,
+.iconic-editor__block:not(.is-inactive, .is-off) .is-muted {
+  opacity: var(--iconic-muted);
+}
+
+.iconic-editor__row {
+  display: grid;
+  grid-template-columns: var(--iconic-label-w) minmax(0, 1fr);
+  column-gap: 6px;
+  align-items: center;
+  min-height: var(--iconic-control-h);
+}
+
+.iconic-editor__rowLabel {
+  font-size: 12px;
+  color: var(--iconic-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconic-editor__toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.iconic-editor__toggle input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.iconic-editor__toggle--row {
+  grid-column: 1 / -1;
+}
+
+.iconic-editor__controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.iconic-editor__colorRow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: var(--iconic-control-h);
+}
+
+/* The tooltip of a button that may be disabled: the wrapper takes the pointer, a disabled button does not. */
+.iconic-editor__tip {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+.iconic-editor__tip:has(button:disabled) {
+  cursor: not-allowed;
+}
+
+.iconic-editor__tip button:disabled {
+  pointer-events: none;
+}
+
+.iconic-editor__field {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.iconic-editor__controls .iconic-editor__field {
+  flex: 1 1 0;
+  min-width: 0;
+  gap: 4px;
+}
+
+.iconic-editor__controls .iconic-editor__field .iconic-editor__number {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.iconic-editor__label {
+  font-size: 12px;
+  color: var(--iconic-text-dim);
+  white-space: nowrap;
+}
+
+.iconic-editor__color {
+  width: 34px;
+  height: var(--iconic-control-h);
+  padding: 0;
+  flex: 0 0 auto;
+  border-radius: 4px;
+  border: 1px solid var(--iconic-border);
+}
+
+.iconic-editor__colorHex {
+  width: 78px;
+  flex: 0 0 auto;
+}
+
+.iconic-editor__iconBtn {
+  width: var(--iconic-control-h);
+  min-width: var(--iconic-control-h);
+  padding: 0;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconic-editor__iconBtn--end {
+  margin-left: auto;
+}
+
+.iconic-editor__number {
+  width: 52px;
+  flex: 0 0 auto;
+}
+
+.iconic-editor__range {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+
+.iconic-editor__select {
+  min-width: 0;
+}
+
+.iconic-editor__select--wide {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+/* Icon browser: windowed grid of atlas thumbnails. */
+
+.iconic-vgrid {
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: none;
+}
+
+.iconic-vgrid-sizer {
+  position: relative;
+}
+
+.iconic-cell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--iconic-cell, 56px);
+  height: var(--iconic-cell, 56px);
+  box-sizing: border-box;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--iconic-surface, rgba(127, 127, 127, 0.1));
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+.iconic-cell.is-file,
+.iconic-browser__preview.is-file {
+  /* Files can be any color, black ones included: they sit on a neutral gray, not on the dark theme. */
+  background: var(--iconic-file-backdrop, #6e7380);
+}
+
+.iconic-cell:hover {
+  box-shadow: inset 0 0 0 1px var(--iconic-border, rgba(127, 127, 127, 0.45));
+}
+
+.iconic-cell.is-selected {
+  box-shadow: inset 0 0 0 2px var(--iconic-accent, #7aa2ff);
+}
+
+.iconic-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background-color: var(--iconic-thumb-color, currentColor);
+  -webkit-mask-image: var(--iconic-sheet);
+  mask-image: var(--iconic-sheet);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: var(--iconic-mask-size);
+  mask-size: var(--iconic-mask-size);
+  -webkit-mask-position: var(--iconic-mask-pos);
+  mask-position: var(--iconic-mask-pos);
+}
+
+/* Icon browser window. */
+
+.iconic-browser-window .window-content {
+  padding: 0;
+  overflow: hidden;
+}
+
+.iconic-browser {
+  flex: 1 1 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.iconic-browser button {
+  margin: 0;
+  min-height: 0;
+  line-height: 1.3;
+}
+
+.iconic-browser__top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--iconic-border);
+}
+
+.iconic-browser__search {
+  flex: 1 1 160px;
+  min-width: 120px;
+}
+
+.iconic-browser__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.iconic-browser__tabs button,
+.iconic-browser__chips button,
+.iconic-browser__groups button {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.iconic-browser__tabs button:hover,
+.iconic-browser__chips button:hover,
+.iconic-browser__groups button:hover {
+  background: var(--iconic-surface);
+}
+
+.iconic-browser__tabs button.is-active,
+.iconic-browser__chips button.is-active,
+.iconic-browser__groups button.is-active {
+  border-color: var(--iconic-accent);
+  background: var(--iconic-surface);
+}
+
+.iconic-browser__count {
+  color: var(--iconic-text-dim);
+  white-space: nowrap;
+}
+
+.iconic-browser__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+
+.iconic-browser__groups {
+  flex: 0 0 190px;
+  overflow-y: auto;
+  padding: 6px;
+  border-right: 1px solid var(--iconic-border);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.iconic-browser__groups[hidden] {
+  display: none;
+}
+
+.iconic-browser__groups button {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+}
+
+.iconic-browser__groups small,
+.iconic-browser__chips small {
+  color: var(--iconic-text-dim);
+}
+
+.iconic-browser__main {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  padding: 8px;
+}
+
+.iconic-browser__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.iconic-browser__chips[hidden] {
+  display: none;
+}
+
+.iconic-browser__grid {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.iconic-browser__empty {
+  position: absolute;
+  inset: 48px 8px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  text-align: center;
+  color: var(--iconic-text-dim);
+  pointer-events: none;
+}
+
+.iconic-browser__empty[hidden] {
+  display: none;
+}
+
+.iconic-cellimg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.iconic-browser__detail {
+  flex: 0 0 240px;
+  overflow-y: auto;
+  padding: 10px;
+  border-left: 1px solid var(--iconic-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.iconic-browser__hint {
+  margin: 0;
+  color: var(--iconic-text-dim);
+}
+
+.iconic-browser__preview {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--iconic-border);
+  border-radius: 6px;
+  background: var(--iconic-surface);
+}
+
+.iconic-browser__preview img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+}
+
+.iconic-browser__title {
+  margin: 0;
+  font-size: 1.1em;
+  overflow-wrap: anywhere;
+}
+
+.iconic-browser__detail dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+}
+
+.iconic-browser__detail dt {
+  color: var(--iconic-text-dim);
+}
+
+.iconic-browser__detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.iconic-browser__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.iconic-browser__tag {
+  height: auto;
+  font-family: inherit;
+  font-weight: normal;
+  padding: 1px 6px;
+  border: 1px solid var(--iconic-border);
+  border-radius: 10px;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.iconic-browser__tag:hover {
+  border-color: var(--iconic-accent);
+}
+
+.iconic-browser__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--iconic-border);
+}
+
+.iconic-browser__foot button[hidden] {
+  display: none;
+}
+
+.iconic-browser__spacer {
+  flex: 1 1 auto;
+}
+
+/* Editor: low-contrast hint, toggle buttons. */
+
+.iconic-editor__iconBtn.is-active {
+  border-color: var(--iconic-accent, #7aa2ff);
+  background: var(--iconic-surface);
+  box-shadow: inset 0 0 0 1px var(--iconic-accent, #7aa2ff);
+}
+
+.iconic-editor__hint {
+  flex: 0 1 auto;
+  box-sizing: border-box;
+  height: var(--iconic-control-h);
+  min-width: 0;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  border: 1px solid var(--iconic-warning);
+  border-radius: 4px;
+  background: var(--iconic-surface);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.iconic-editor__hint[hidden] {
+  display: none;
+}
+
+.iconic-editor__hint > i {
+  color: var(--iconic-warning);
+}
+
+.iconic-editor__hintText {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iconic-editor__hintGroup {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--iconic-text-dim);
+}
+
+.iconic-editor .iconic-editor__swatch {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  padding: 0;
+  border: 1px solid var(--iconic-border);
+  border-radius: 4px;
+  background: var(--iconic-swatch);
+  cursor: pointer;
+}
+
+.iconic-editor .iconic-editor__swatch:hover {
+  border-color: var(--iconic-accent, #7aa2ff);
+}
+
+/* The icon following the cursor while a tile is placed. It lives on <body>, outside the windows. */
+.iconic-tile-ghost {
+  position: fixed;
+  z-index: 1000;
+  max-width: none;
+  border: none;
+  opacity: 0.75;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}

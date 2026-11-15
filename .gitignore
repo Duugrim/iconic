@@ -1,0 +1,15 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# User-supplied SVGs live here (Foundry keeps modules/<id>/storage across updates); only the folder is tracked
+storage/custom/*
+!storage/custom/.gitkeep
+
+# Saved styles are the user's too; only the folders are tracked
+storage/presets/*
+!storage/presets/.gitkeep
+!storage/presets/removed/
+storage/presets/removed/*
+!storage/presets/removed/.gitkeep
