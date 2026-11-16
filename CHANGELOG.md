@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Backgrounds: a map pin, a circle drawn to a point at the bottom. Corner radius rounds that point; inset, opacity, outline and "fit icon" work as on the other shapes.
 - Token Configuration: the "⋮" entry now puts the new image into the form, like a file picked by hand, and it is saved with the window, instead of being written to the token at once. The prototype token window has the entry too.
 - Icon tiles: *New icon tile* in the Tiles controls makes an icon and places it on the map as a tile, a movable marker with no actor or item behind it. `api.placeTile()` does the same from a macro.
 - Tiles can be restyled: an Iconic button in the HUD of SVG tiles, and the "⋮" menu of the tile sheet.
