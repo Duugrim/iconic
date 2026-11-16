@@ -58,6 +58,7 @@
         "Shapes": {
           "Square": "Square",
           "Circle": "Circle",
+          "MapPin": "Map pin",
           "HexFlat": "Hexagon (flat top)",
           "HexPointy": "Hexagon (pointy top)",
           "ShieldHeater": "Heater",

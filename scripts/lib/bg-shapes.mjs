@@ -59,6 +59,56 @@ function _ellipse(id, group, rx, ry, safe) {
   };
 }
 
+/** One cubic for a circular arc. Angles are y-down, 0 at +x, and increase clockwise on screen. */
+function _arcSeg(cx, cy, r, a0, a1) {
+  const k = (4 / 3) * Math.tan((a1 - a0) / 4) * r;
+  const at = (a) => [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  const tan = (a) => [-Math.sin(a), Math.cos(a)];
+  const p0 = at(a0);
+  const p1 = at(a1);
+  const t0 = tan(a0);
+  const t1 = tan(a1);
+  return [
+    'C',
+    p0[0] + k * t0[0], p0[1] + k * t0[1],
+    p1[0] - k * t1[0], p1[1] - k * t1[1],
+    p1[0], p1[1],
+  ];
+}
+
+/**
+ * Map pin: a circle whose lower sides leave on the tangent and meet in a point.
+ * The tip is one diameter below the center, so the tangents sit 30° under the
+ * equator and the point is 60° — the usual geolocation marker.
+ */
+function _mapPin() {
+  const R = 50;
+  const cx = R;
+  const cy = R;
+  const tipDist = 2 * R;
+  const relY = (R * R) / tipDist;
+  const relX = Math.sqrt(R * R - relY * relY);
+  const aRight = Math.atan2(relY, relX);
+  const aLeft = Math.atan2(relY, -relX);
+  const start = [cx + R * Math.cos(aLeft), cy + R * Math.sin(aLeft)];
+  const tip = [cx, cy + tipDist];
+  // Extrema (left, top, right) are endpoints, so the arc stays in the design box.
+  const stops = [aLeft, Math.PI, Math.PI * 1.5, Math.PI * 2, aRight + Math.PI * 2];
+  const segs = [];
+  for (let i = 0; i < stops.length - 1; i++) segs.push(_arcSeg(cx, cy, R, stops[i], stops[i + 1]));
+  segs.push(['L', tip[0], tip[1]], ['L', start[0], start[1]]);
+  return {
+    id: 'map-pin',
+    group: 'basic',
+    w: R * 2,
+    h: tip[1],
+    start,
+    segs,
+    // The icon sits in the round head, with the same room the circle gives it.
+    safe: { cx, cy, size: 74 },
+  };
+}
+
 const HEX_H = 100 * HEX_RATIO;
 
 /**
@@ -68,6 +118,7 @@ const HEX_H = 100 * HEX_RATIO;
 const SHAPES = [
   _poly('square', 'basic', 100, 100, [[0, 0], [100, 0], [100, 100], [0, 100]], { cx: 50, cy: 50, size: 100 }),
   _ellipse('circle', 'basic', 50, 50, { cx: 50, cy: 50, size: 74 }),
+  _mapPin(),
 
   _poly('hex-flat', 'hex', 100, HEX_H, [
     [25, 0], [75, 0], [100, HEX_H / 2], [75, HEX_H], [25, HEX_H], [0, HEX_H / 2],

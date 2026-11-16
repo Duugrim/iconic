@@ -61,6 +61,19 @@ await test('division quarterly paints the opposite quarters', async () => {
   assert(is(at(128, 128), '#ff0000'), 'top left');
 });
 
+await test('a map pin is a circle with a point, empty beside the tip', async () => {
+  const { at } = await draw(field({ background: { shape: 'map-pin' } }));
+  // Head center is one radius (512/3) below the top; the tip reaches the bottom edge.
+  // The source icon is a white square in the top-left, so probes stay out of it.
+  const headY = Math.round(512 / 3);
+  assert(is(at(256, headY), '#ff0000'), `head ${show(at(256, headY))}`);
+  assert(is(at(256, 4), '#ff0000'), `top of the circle ${show(at(256, 4))}`);
+  assert(is(at(256, 500), '#ff0000'), `above the tip ${show(at(256, 500))}`);
+  assert(clear(at(400, 8)), `beside the head ${show(at(400, 8))}`);
+  assert(clear(at(8, 200)), `left of the head ${show(at(8, 200))}`);
+  assert(clear(at(8, 500)), `beside the tip ${show(at(8, 500))}`);
+});
+
 await test('the second color stays inside a non-square shape', async () => {
   const { at } = await draw(field({ background: { shape: 'circle', division: { type: 'pale', color: '#0000ff' } } }));
   assert(clear(at(500, 8)), `corner outside the circle ${show(at(500, 8))}`);

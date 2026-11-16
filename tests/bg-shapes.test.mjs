@@ -5,6 +5,7 @@
  * Each case prints a single PASS/FAIL line. Process exits with code 1 if any assertion fails.
  */
 
+import fs from 'node:fs';
 import {
   bgShapeHasRadius,
   buildShapePath,
@@ -58,6 +59,17 @@ assert('legacy "hex" maps to hex-flat', normalizeBgShapeId('hex') === 'hex-flat'
 assert('legacy "rounded" maps to square', normalizeBgShapeId('rounded') === 'square');
 assert('unknown shape falls back to square', normalizeBgShapeId('nope') === 'square' && normalizeBgShapeId(null) === 'square');
 assert('circle has no radius, others do', !bgShapeHasRadius('circle') && bgShapeHasRadius('hex-flat') && bgShapeHasRadius('shield-heater'));
+assert('map pin keeps its id and can be rounded', normalizeBgShapeId('Map-Pin') === 'map-pin' && bgShapeHasRadius('map-pin'));
+
+function pascal(id) {
+  return id.split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+}
+for (const lang of ['en', 'ru']) {
+  const labels = JSON.parse(fs.readFileSync(new URL(`../lang/${lang}.json`, import.meta.url), 'utf8')).ICONIC.Editor.Background.Shapes;
+  for (const { id } of shapes) {
+    assert(`${lang} names ${id}`, typeof labels[pascal(id)] === 'string' && labels[pascal(id)].length > 0);
+  }
+}
 
 // --- regular hexagons --------------------------------------------------------
 
@@ -173,6 +185,74 @@ function inside(poly, [x, y]) {
     if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
   }
   return hit;
+}
+
+// --- map pin: a circle drawn to a point -------------------------------------------------
+
+{
+  const d = buildShapePath('map-pin', BOX);
+  const cmds = parse(d);
+  const curves = cmds.filter((c) => c.c === 'C');
+  const lines = cmds.filter((c) => c.c === 'L');
+  assert('map pin: four arcs and one side (the other closes with Z)', curves.length === 4 && lines.length === 1, cmds.map((c) => c.c));
+
+  const b = bounds(d);
+  const width = b.maxX - b.minX;
+  const height = b.maxY - b.minY;
+  assert('map pin: fills the box height and is centered',
+    near(height, 512, 0.05) && near(b.minY, 0, 0.05) && near((b.minX + b.maxX) / 2, 256, 0.05), b);
+  assert('map pin: width is two thirds of the height', near(width, 512 * 2 / 3, 0.1), width);
+
+  const radius = width / 2;
+  const head = [(b.minX + b.maxX) / 2, b.minY + radius];
+  const tip = lines[0].pts[0];
+  const left = cmds[0].pts[0];
+  const right = curves[curves.length - 1].pts.at(-1);
+  assert('map pin: tip is the bottom center', near(tip[0], head[0], 0.05) && near(tip[1], b.maxY, 0.05), tip);
+
+  const between = (u, v) => {
+    const d = u[0] * v[0] + u[1] * v[1];
+    return Math.acos(d / (Math.hypot(u[0], u[1]) * Math.hypot(v[0], v[1])));
+  };
+  const point = between([left[0] - tip[0], left[1] - tip[1]], [right[0] - tip[0], right[1] - tip[1]]);
+  assert('map pin: the point is 60°', near(point, Math.PI / 3, 0.01), point);
+  assert('map pin: shoulders sit on the circle, 30° under the equator',
+    near(Math.hypot(left[0] - head[0], left[1] - head[1]), radius, 0.15)
+    && near(Math.hypot(right[0] - head[0], right[1] - head[1]), radius, 0.15)
+    && near(Math.atan2(left[1] - head[1], head[0] - left[0]), Math.PI / 6, 0.01),
+    { left, right, head, radius });
+
+  // The head is a circle: sample every arc. A quarter-circle cubic bows by a fraction of a pixel.
+  const samples = [];
+  let cur = left;
+  for (const c of curves) {
+    const [c1, c2, p1] = c.pts;
+    for (const t of [0.25, 0.5, 0.75, 1]) {
+      const u = 1 - t;
+      samples.push([
+        u * u * u * cur[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * p1[0],
+        u * u * u * cur[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * p1[1],
+      ]);
+    }
+    cur = p1;
+  }
+  const off = samples.map((p) => Math.abs(Math.hypot(p[0] - head[0], p[1] - head[1]) - radius));
+  assert('map pin: the head is circular', Math.max(...off) < 0.2, Math.max(...off));
+
+  const soft = parse(buildShapePath('map-pin', BOX, { radius: 36 }));
+  assert('map pin: corner radius rounds only the tip', soft.filter((c) => c.c === 'C').length === curves.length + 1, soft.map((c) => c.c));
+
+  const poly = polygonFromPath(d);
+  const s = getShapeSafeSquare('map-pin', BOX);
+  const ri = s.size / 2;
+  const outside = [];
+  for (let deg = 0; deg < 360; deg += 5) {
+    const a = (deg * Math.PI) / 180;
+    const p = [s.cx + Math.cos(a) * ri, s.cy + Math.sin(a) * ri];
+    if (!inside(poly, p)) outside.push(deg);
+  }
+  assert('map pin: the icon disc sits inside the outline', outside.length === 0, { outside, s });
+  assert('map pin: the icon is centered on the head, not on the whole pin', near(s.cx, head[0], 0.05) && near(s.cy, head[1], 0.05), s);
 }
 
 for (const { id } of shapes) {

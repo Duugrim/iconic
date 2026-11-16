@@ -1,6 +1,6 @@
 # Iconic
 
-Turn SVG icons into portraits and tokens for Foundry VTT (v13, v14): pick one from a built-in library of more than 4,000 icons, recolor it, scale and stroke it, and put it on a background shape: square, circle, regular hexagon (flat or pointy top) or one of eight heraldic shields.
+Turn SVG icons into portraits and tokens for Foundry VTT (v13, v14): pick one from a built-in library of more than 4,000 icons, recolor it, scale and stroke it, and put it on a background shape: square, circle, map pin, regular hexagon (flat or pointy top) or one of eight heraldic shields.
 
 ## Installation
 
@@ -28,7 +28,7 @@ The editor opens on the image the document shows now. An icon made earlier opens
 ## What the editor does
 
 - **Icon:** color, size, opacity, an outline; **rotation**, **shift** and **flip** (horizontal / vertical) around the icon's own center, with a reset button. Where an icon sits is per icon: it is not carried over to the next one.
-- **Background:** square, circle, regular hexagon (flat or pointy top) or one of eight heraldic shields; corner radius, inset, opacity, outline, "fit icon" (scales the icon into the shape's safe area).
+- **Background:** square, circle, map pin (a circle drawn to a point at the bottom), regular hexagon (flat or pointy top) or one of eight heraldic shields; corner radius, inset, opacity, outline, "fit icon" (scales the icon into the shape's safe area).
 - **Field division:** paint a second color over part of the field, like a painted shield: per pale, per fess, per bend, per bend sinister, per chevron, per saltire, quarterly, chief, gyronny, paly, barry or chequy. With the outline on, the dividing lines take its color.
 - **Second contour:** a second line inside the edge, running parallel to it at an even distance on every shape; color, width and gap are yours.
 - **Contrast hint:** when the icon is hard to read on the background (below 3:1) a warning appears at the bottom of the window with colors that fix it, one click to take one. Each color of the field is judged on its own, and on it the icon reads by its fill or by its outline: a white icon with a black outline on dark red with a gold second color is fine (the outline reads on the gold, the white on the red). With a see-through or missing background there is nothing to judge. A faction color given by the caller (`factionColor`) is offered too when it reads well.

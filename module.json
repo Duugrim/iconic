@@ -1,7 +1,7 @@
 {
   "id": "iconic",
   "title": "Iconic",
-  "description": "Turn SVG icons into portraits and tokens: pick from a built-in library of over 4,000 game-icons.net icons, recolor, rotate, put them on a hexagon, circle or heraldic shield with a divided field and a second contour. Opens from the sheet menu or the actor and item directory context menu.",
+  "description": "Turn SVG icons into portraits and tokens: pick from a built-in library of over 4,000 game-icons.net icons, recolor, rotate, put them on a hexagon, circle, map pin or heraldic shield with a divided field and a second contour. Opens from the sheet menu or the actor and item directory context menu.",
   "version": "0.2.0",
   "authors": [
     {
